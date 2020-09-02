@@ -1,7 +1,12 @@
 #!/bin/bash
 
-if [$# -ne 4]; then
-    echo "USAGE:\n\t run_thr.sh <pub> <sub> <remote-host> <N>"
+
+if test "$#" -ne 4; then
+    echo "USAGE:"
+    echo "    run_thr.sh <pub> <sub> <remote-host> <N>"
+    echo ""
+    exit 1
+fi
 
 PUB=$1
 SUB=$2
