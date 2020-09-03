@@ -2,7 +2,8 @@
 
 if test $ZENOH_PERF -eq "";
    export ZENOH_PERF=$1
-
+fi
+   
 N=50
 TS=`eval date "+%F-%T"`
 TS=`eval echo $TS | tr : _`
