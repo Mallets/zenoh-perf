@@ -15,7 +15,7 @@ N=$4
 SIZE="8 16 32 64 128 256 1024 2048 4096 8192 16384 32768  65536  131072 262144 524288 1048576 2097152 4194304 8388608 16777216"
 
 DATE=`eval date "+%F-%T"`
-DATA_PATH=$WD/thr
+DATA_PATH=$WD
 mkdir -p  $DATA_PATH
 
 for s in $SIZE; do
@@ -38,7 +38,7 @@ for s in $SIZE; do
     TS=`eval date "+%F-%T"`
     echo "[$TS]: removing msg/sec from data"
     sed -i s+msg/s++ $DATA_PATH/$s.txt
-    
+
     TS=`eval date "+%F-%T"`
     echo "[$TS]: Subscriber completed, terminating publisher!"
     kill -9 $P_PID &> /dev/null
