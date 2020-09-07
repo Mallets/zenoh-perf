@@ -1,9 +1,11 @@
 #!/bin/bash
 
-if test $ZENOH_PERF -eq "";
-   export ZENOH_PERF=$1
-fi
-   
+if test "$#" -ne 1; then
+    echo "Please provide the zenoh-perf path as argument"
+fi    
+
+export ZENOH_PERF=$1
+
 N=50
 TS=`eval date "+%F-%T"`
 TS=`eval echo $TS | tr : _`

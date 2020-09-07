@@ -36,6 +36,10 @@ for s in $SIZE; do
     }
     wait $S_PID
     TS=`eval date "+%F-%T"`
+    echo "[$TS]: removing msg/sec from data"
+    sed -i s+msg/s++ $DATA_PATH/$s.txt
+    
+    TS=`eval date "+%F-%T"`
     echo "[$TS]: Subscriber completed, terminating publisher!"
     kill -9 $P_PID &> /dev/null
     wait $P_PID &> /dev/null
