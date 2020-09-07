@@ -22,5 +22,5 @@ PUB=$ZENOH_ROOT/target/release/examples/zn_pub_thr
 SUB=$ZENOH_ROOT/target/release/examples/zn_sub_thr
 
 $ZENOH_PERF/scripts/bash/run_l_thr.sh $DWD $PUB $SUB $N
-$ZENOH_PERF/scripts/R/gen_stats.R $DWD $SWD $TS
+Rscript $ZENOH_PERF/scripts/R/gen_stats.R $DWD $SWD $TS
 
