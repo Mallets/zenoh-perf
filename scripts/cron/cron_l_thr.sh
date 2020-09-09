@@ -12,8 +12,10 @@ TS=`eval echo $TS | tr : _`
 BWD=$ZENOH_PERF/$TS-build
 DWD=$ZENOH_PERF/$TS-data
 SWD=$ZENOH_PERF/stats
+PWD=$ZENOH_PERF/plots
 
-mkdir $ZENOH_PERF/stats &>/dev/null
+mkdir $SWD &>/dev/null
+mkdir $PWD &>/dev/null
 
 $ZENOH_PERF/scripts/bash/build_zenoh.sh $BWD
 ZENOH_ROOT=$BWD/zenoh
@@ -23,4 +25,4 @@ SUB=$ZENOH_ROOT/target/release/examples/zn_sub_thr
 
 $ZENOH_PERF/scripts/bash/run_l_thr.sh $DWD $PUB $SUB $N
 Rscript $ZENOH_PERF/scripts/R/gen_stats.R $DWD $SWD $TS
-
+Rscript $ZENOH_PERF/scripts/R/gen_tseries.R $DWD $PWD $TS
