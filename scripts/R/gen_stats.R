@@ -1,6 +1,6 @@
 generate_stats <- function (data_path, out_path, date) {
   sizes <- c(8)
-  for(i in 1:21) {
+  for(i in 1:19) {
     sizes = append(sizes, sizes[length(sizes)]*2)
   }
   print(sizes)
