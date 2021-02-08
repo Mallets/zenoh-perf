@@ -1,2 +1,2 @@
 # zenoh-perf
-scripts for running zenoh performances and creating plots
+Rust code for testing and validating zenoh
