@@ -1,0 +1,116 @@
+//
+// Copyright (c) 2017, 2020 ADLINK Technology Inc.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+// which is available at https://www.apache.org/licenses/LICENSE-2.0.
+//
+// SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+//
+// Contributors:
+//   ADLINK zenoh team, <zenoh@adlink-labs.tech>
+//
+use async_std::stream::StreamExt;
+use async_std::sync::{Arc, Barrier, Mutex};
+use async_std::task;
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::time::{Duration, Instant};
+use structopt::StructOpt;
+use zenoh::*;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "z_ping")]
+struct Opt {
+    #[structopt(short = "e", long = "peer")]
+    peer: Option<String>,
+    #[structopt(short = "m", long = "mode")]
+    mode: String,
+    #[structopt(short = "s", long = "scout")]
+    scout: bool,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
+    #[structopt(short = "i", long = "interval")]
+    interval: f64,
+}
+
+#[async_std::main]
+async fn main() {
+    // initiate logging
+    env_logger::init();
+
+    // Parse the args
+    let opt = Opt::from_args();
+
+    let mut config = Properties::default();
+    config.insert("mode".to_string(), opt.mode.clone());
+
+    if opt.scout {
+        config.insert("multicast_scouting".to_string(), "true".to_string());
+    } else {
+        config.insert("multicast_scouting".to_string(), "false".to_string());
+        config.insert("peer".to_string(), opt.peer.unwrap().to_string());
+    }
+
+    let zenoh = Zenoh::new(config.into()).await.unwrap();
+    let zenoh = Arc::new(zenoh);
+
+    // The hashmap with the pings
+    let pending = Arc::new(Mutex::new(HashMap::<u64, Instant>::new()));
+    let barrier = Arc::new(Barrier::new(2));
+
+    let c_pending = pending.clone();
+    let c_barrier = barrier.clone();
+    let c_zenoh = zenoh.clone();
+    task::spawn(async move {
+        let workspace = c_zenoh.workspace(None).await.unwrap();
+        let mut sub = workspace
+            .subscribe(&"/test/pong/".to_string().try_into().unwrap())
+            .await
+            .unwrap();
+
+        // Notify that the subscriber has been created
+        c_barrier.wait().await;
+
+        while let Some(change) = sub.next().await {
+            match change.value.unwrap() {
+                Value::Raw(_, mut payload) => {
+                    let mut count_bytes = [0u8; 8];
+                    payload.read_bytes(&mut count_bytes);
+                    let count = u64::from_le_bytes(count_bytes);
+
+                    let instant = c_pending.lock().await.remove(&count).unwrap();
+                    println!(
+                        "{} bytes: seq={} time={:?}",
+                        payload.len(),
+                        count,
+                        instant.elapsed()
+                    );
+                }
+                _ => panic!("Invalid value"),
+            }
+        }
+    });
+
+    // Wait for the subscriber to be declared
+    barrier.wait().await;
+
+    let workspace = zenoh.workspace(None).await.unwrap();
+    let mut count: u64 = 0;
+    loop {
+        let count_bytes: [u8; 8] = count.to_le_bytes();
+        let mut payload = vec![0u8; opt.payload];
+        payload[0..8].copy_from_slice(&count_bytes);
+
+        pending.lock().await.insert(count, Instant::now());
+
+        workspace
+            .put(&"/test/ping".try_into().unwrap(), payload.into())
+            .await
+            .unwrap();
+
+        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        count += 1;
+    }
+}
