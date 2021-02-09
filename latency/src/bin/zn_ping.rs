@@ -32,6 +32,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "d", long = "id")]
+    id: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -64,6 +66,7 @@ async fn main() {
     let c_pending = pending.clone();
     let c_barrier = barrier.clone();
     let c_session = session.clone();
+    let id = opt.id;
     task::spawn(async move {
         // The resource to wait the response back
         let reskey_pong = RId(c_session
@@ -90,10 +93,11 @@ async fn main() {
             let count = u64::from_le_bytes(count_bytes);
             let instant = c_pending.lock().await.remove(&count).unwrap();
             println!(
-                "{} bytes: seq={} time={:?}",
+                "zenoh-net,ping,latency,{},{},{},{}",
+                id,
                 sample.payload.len(),
                 count,
-                instant.elapsed()
+                instant.elapsed().as_micros()
             );
         }
     });

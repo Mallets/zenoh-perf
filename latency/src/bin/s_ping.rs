@@ -29,12 +29,13 @@ use zenoh_util::core::ZResult;
 
 // Session Handler for the peer
 struct MySH {
+    id: String,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MySH {
-    fn new(pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { pending }
+    fn new(id: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self { id, pending }
     }
 }
 
@@ -44,18 +45,19 @@ impl SessionHandler for MySH {
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
-        Ok(Arc::new(MyMH::new(self.pending.clone())))
+        Ok(Arc::new(MyMH::new(self.id.clone(), self.pending.clone())))
     }
 }
 
 // Message Handler for the peer
 struct MyMH {
+    id: String,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MyMH {
-    fn new(pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { pending }
+    fn new(id: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self { id, pending }
     }
 }
 
@@ -69,10 +71,11 @@ impl SessionEventHandler for MyMH {
                 let count = u64::from_le_bytes(count_bytes);
                 let instant = self.pending.lock().await.remove(&count).unwrap();
                 println!(
-                    "{} bytes: seq={} time={:?}",
+                    "session,ping,latency,{},{},{},{}",
+                    self.id,
                     payload.len(),
                     count,
-                    instant.elapsed()
+                    instant.elapsed().as_micros()
                 );
             }
             _ => panic!("Invalid message"),
@@ -95,6 +98,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "d", long = "id")]
+    id: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -123,7 +128,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(pending.clone())),
+        handler: Arc::new(MySH::new(opt.id, pending.clone())),
     };
     let manager = SessionManager::new(config, None);
 

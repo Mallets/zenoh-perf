@@ -11,11 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::Arc;
-use async_std::task;
+use async_std::future;
+use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
 use structopt::StructOpt;
 use zenoh_protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
@@ -29,65 +27,64 @@ use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
-struct ThroughputPrimitives {
-    count: Arc<AtomicUsize>,
+struct LatencyPrimitives {
+    tx: Mutex<Option<Arc<dyn Primitives + Send + Sync>>>,
 }
 
-impl ThroughputPrimitives {
-    pub fn new(count: Arc<AtomicUsize>) -> ThroughputPrimitives {
-        ThroughputPrimitives { count }
+impl LatencyPrimitives {
+    fn new() -> LatencyPrimitives {
+        LatencyPrimitives {
+            tx: Mutex::new(None),
+        }
+    }
+
+    async fn set_tx(&self, tx: Arc<dyn Primitives + Send + Sync>) {
+        let mut guard = self.tx.lock().await;
+        *guard = Some(tx);
     }
 }
 
 #[async_trait]
-impl Primitives for ThroughputPrimitives {
-    async fn resource(&self, _rid: ZInt, _reskey: &ResKey) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    async fn forget_resource(&self, _rid: ZInt) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    async fn publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
+impl Primitives for LatencyPrimitives {
+    async fn resource(&self, _rid: ZInt, _reskey: &ResKey) {}
+    async fn forget_resource(&self, _rid: ZInt) {}
+    async fn publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
     async fn subscriber(
         &self,
         _reskey: &ResKey,
         _sub_info: &SubInfo,
         _routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
     }
-
-    async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    async fn queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
+    async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    async fn queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     async fn data(
         &self,
         _reskey: &ResKey,
-        _payload: RBuf,
-        _reliability: Reliability,
-        _congestion_control: CongestionControl,
-        _data_info: Option<DataInfo>,
-        _routing_context: Option<RoutingContext>,
+        payload: RBuf,
+        reliability: Reliability,
+        congestion_control: CongestionControl,
+        data_info: Option<DataInfo>,
+        routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        let reskey = ResKey::RName("/test/pong".to_string());
+        self.tx
+            .lock()
+            .await
+            .as_ref()
+            .unwrap()
+            .data(
+                &reskey,
+                payload,
+                reliability,
+                congestion_control,
+                data_info,
+                routing_context,
+            )
+            .await;
     }
 
     async fn query(
@@ -99,9 +96,7 @@ impl Primitives for ThroughputPrimitives {
         _consolidation: QueryConsolidation,
         _routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
     }
-
     async fn reply_data(
         &self,
         _qid: ZInt,
@@ -111,13 +106,8 @@ impl Primitives for ThroughputPrimitives {
         _info: Option<DataInfo>,
         _payload: RBuf,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
     }
-
-    async fn reply_final(&self, _qid: ZInt) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
-
+    async fn reply_final(&self, _qid: ZInt) {}
     async fn pull(
         &self,
         _is_final: bool,
@@ -125,12 +115,8 @@ impl Primitives for ThroughputPrimitives {
         _pull_id: ZInt,
         _max_samples: &Option<ZInt>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
     }
-
-    async fn close(&self) {
-        self.count.fetch_add(1, Ordering::AcqRel);
-    }
+    async fn close(&self) {}
 }
 
 #[derive(Debug, StructOpt)]
@@ -170,32 +156,24 @@ async fn main() {
         };
     }
 
-    let count = Arc::new(AtomicUsize::new(0));
-    let my_primitives = Arc::new(ThroughputPrimitives::new(count.clone()));
-
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let primitives = runtime
+    let rx_primitives = Arc::new(LatencyPrimitives::new());
+    let tx_primitives = runtime
         .read()
         .await
         .router
-        .new_primitives(my_primitives)
+        .new_primitives(rx_primitives.clone())
         .await;
+    rx_primitives.set_tx(tx_primitives).await;
 
-    primitives.resource(1, &"/tp".to_string().into()).await;
-
-    let rid = ResKey::RId(1);
+    let rid = ResKey::RName("/test/ping".to_string());
     let sub_info = SubInfo {
         reliability: Reliability::Reliable,
         mode: SubMode::Push,
         period: None,
     };
-    primitives.subscriber(&rid, &sub_info, None).await;
+    rx_primitives.subscriber(&rid, &sub_info, None).await;
 
-    loop {
-        task::sleep(Duration::from_secs(1)).await;
-        let c = count.swap(0, Ordering::AcqRel);
-        if c > 0 {
-            println!("router,sub,throughput,{},{},{}", opt.id, opt.payload, c);
-        }
-    }
+    // Stop forever
+    future::pending::<()>().await;
 }

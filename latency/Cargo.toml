@@ -57,6 +57,12 @@ name = "s_ping"
 name = "s_pong"
 
 [[bin]]
+name = "r_ping"
+
+[[bin]]
+name = "r_pong"
+
+[[bin]]
 name = "zn_ping"
 
 [[bin]]

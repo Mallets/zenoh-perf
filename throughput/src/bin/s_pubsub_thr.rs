@@ -29,13 +29,17 @@ use zenoh_util::core::ZResult;
 
 // Session Handler for the peer
 struct MySH {
+    id: String,
+    payload: usize,
     counter: Arc<AtomicUsize>,
     active: AtomicBool,
 }
 
 impl MySH {
-    fn new(counter: Arc<AtomicUsize>) -> Self {
+    fn new(id: String, payload: usize, counter: Arc<AtomicUsize>) -> Self {
         Self {
+            id,
+            payload,
             counter,
             active: AtomicBool::new(false),
         }
@@ -50,11 +54,13 @@ impl SessionHandler for MySH {
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
         if !self.active.swap(true, Ordering::Acquire) {
             let count = self.counter.clone();
+            let id = self.id.clone();
+            let payload = self.payload;
             task::spawn(async move {
                 loop {
                     task::sleep(Duration::from_secs(1)).await;
                     let c = count.swap(0, Ordering::Relaxed);
-                    println!("{} msg/s", c);
+                    println!("session,pubsub,throughput,{},{},{}", id, payload, c);
                 }
             });
         }
@@ -97,6 +103,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "d", long = "id")]
+    id: String,
 }
 
 #[async_std::main]
@@ -123,7 +131,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(count)),
+        handler: Arc::new(MySH::new(opt.id, opt.payload, count)),
     };
     let manager = SessionManager::new(config, None);
 

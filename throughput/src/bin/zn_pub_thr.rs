@@ -11,28 +11,22 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::Arc;
-use async_std::task;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
 use zenoh::net::*;
 use zenoh::Properties;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "zn_sub_thr")]
+#[structopt(name = "zn_pub_thr")]
 struct Opt {
-    #[structopt(short = "l", long = "locator")]
-    locator: Option<String>,
+    #[structopt(short = "e", long = "peer")]
+    peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "s", long = "scout")]
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
 }
 
 #[async_std::main]
@@ -50,11 +44,7 @@ async fn main() {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
-        match opt.mode.as_str() {
-            "peer" => config.insert("listener".to_string(), opt.locator.unwrap().to_string()),
-            "client" => config.insert("peer".to_string(), opt.locator.unwrap().to_string()),
-            _ => panic!("Unsupported mode: {}", opt.mode),
-        };
+        config.insert("peer".to_string(), opt.peer.unwrap().to_string());
     }
 
     let session = open(config.into()).await.unwrap();
@@ -63,28 +53,22 @@ async fn main() {
         .declare_resource(&RName("/test/thr".to_string()))
         .await
         .unwrap());
+    let _publ = session.declare_publisher(&reskey).await.unwrap();
 
-    let messages = Arc::new(AtomicUsize::new(0));
-    let c_messages = messages.clone();
-
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-    session
-        .declare_callback_subscriber(&reskey, &sub_info, move |_sample| {
-            c_messages.fetch_add(1, Ordering::AcqRel);
-        })
-        .await
-        .unwrap();
-
+    let data: RBuf = (0usize..opt.payload)
+        .map(|i| (i % 10) as u8)
+        .collect::<Vec<u8>>()
+        .into();
     loop {
-        task::sleep(Duration::from_secs(1)).await;
-        let messages = messages.swap(0, Ordering::AcqRel);
-        println!(
-            "zenoh-net,sub,throughput,{},{},{}",
-            opt.id, opt.payload, messages
-        );
+        session
+            .write_ext(
+                &reskey,
+                data.clone(),
+                encoding::DEFAULT,
+                data_kind::DEFAULT,
+                CongestionControl::Block, // Make sure to not drop messages because of congestion control
+            )
+            .await
+            .unwrap();
     }
 }

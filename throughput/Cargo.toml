@@ -68,3 +68,6 @@ name = "r_sub_thr"
 
 [[bin]]
 name = "zn_sub_thr"
+
+[[bin]]
+name = "zn_pub_thr"
