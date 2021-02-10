@@ -81,10 +81,12 @@ async fn main() {
 
     loop {
         task::sleep(Duration::from_secs(1)).await;
-        let messages = messages.swap(0, Ordering::AcqRel);
-        println!(
-            "zenoh-net,sub,throughput,{},{},{}",
-            opt.name, opt.payload, messages
-        );
+        let c = messages.swap(0, Ordering::AcqRel);
+        if c > 0 {
+            println!(
+                "zenoh-net,sub,throughput,{},{},{}",
+                opt.name, opt.payload, c
+            );
+        }
     }
 }
