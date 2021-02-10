@@ -11,7 +11,6 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::future;
 use async_std::sync::Arc;
 use async_std::task;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -73,24 +72,21 @@ async fn main() {
         mode: SubMode::Push,
         period: None,
     };
-    session
+    let _sub = session
         .declare_callback_subscriber(&reskey, &sub_info, move |_sample| {
             c_messages.fetch_add(1, Ordering::AcqRel);
         })
         .await
         .unwrap();
 
-    let name = opt.name.clone();
-    let payload = opt.payload;
-    task::spawn(async move {
-        loop {
-            task::sleep(Duration::from_secs(1)).await;
-            let c = messages.swap(0, Ordering::AcqRel);
-            if c > 0 {
-                println!("zenoh-net,sub,throughput,{},{},{}", name, payload, c);
-            }
+    loop {
+        task::sleep(Duration::from_secs(1)).await;
+        let c = messages.swap(0, Ordering::AcqRel);
+        if c > 0 {
+            println!(
+                "zenoh-net,sub,throughput,{},{},{}",
+                opt.name, opt.payload, c
+            );
         }
-    });
-
-    future::pending::<()>().await;
+    }
 }
