@@ -31,8 +31,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
+    #[structopt(short = "n", long = "name")]
+    name: String,
 }
 
 #[async_std::main]
@@ -84,7 +84,7 @@ async fn main() {
         let messages = messages.swap(0, Ordering::AcqRel);
         println!(
             "zenoh-net,sub,throughput,{},{},{}",
-            opt.id, opt.payload, messages
+            opt.name, opt.payload, messages
         );
     }
 }

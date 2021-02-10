@@ -144,8 +144,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
+    #[structopt(short = "n", long = "name")]
+    name: String,
 }
 
 #[async_std::main]
@@ -195,7 +195,7 @@ async fn main() {
         task::sleep(Duration::from_secs(1)).await;
         let c = count.swap(0, Ordering::AcqRel);
         if c > 0 {
-            println!("router,sub,throughput,{},{},{}", opt.id, opt.payload, c);
+            println!("router,sub,throughput,{},{},{}", opt.name, opt.payload, c);
         }
     }
 }

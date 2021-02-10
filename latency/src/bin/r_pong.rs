@@ -70,6 +70,7 @@ impl Primitives for LatencyPrimitives {
         data_info: Option<DataInfo>,
         routing_context: Option<RoutingContext>,
     ) {
+        println!("YES");
         let reskey = ResKey::RName("/test/pong".to_string());
         self.tx
             .lock()
@@ -128,10 +129,6 @@ struct Opt {
     mode: String,
     #[structopt(short = "s", long = "scout")]
     scout: bool,
-    #[structopt(short = "p", long = "payload")]
-    payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
 }
 
 #[async_std::main]

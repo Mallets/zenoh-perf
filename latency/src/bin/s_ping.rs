@@ -29,13 +29,13 @@ use zenoh_util::core::ZResult;
 
 // Session Handler for the peer
 struct MySH {
-    id: String,
+    name: String,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MySH {
-    fn new(id: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { id, pending }
+    fn new(name: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self { name, pending }
     }
 }
 
@@ -45,19 +45,19 @@ impl SessionHandler for MySH {
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
-        Ok(Arc::new(MyMH::new(self.id.clone(), self.pending.clone())))
+        Ok(Arc::new(MyMH::new(self.name.clone(), self.pending.clone())))
     }
 }
 
 // Message Handler for the peer
 struct MyMH {
-    id: String,
+    name: String,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MyMH {
-    fn new(id: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { id, pending }
+    fn new(name: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self { name, pending }
     }
 }
 
@@ -72,7 +72,7 @@ impl SessionEventHandler for MyMH {
                 let instant = self.pending.lock().await.remove(&count).unwrap();
                 println!(
                     "session,ping,latency,{},{},{},{}",
-                    self.id,
+                    self.name,
                     payload.len(),
                     count,
                     instant.elapsed().as_micros()
@@ -98,8 +98,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
+    #[structopt(short = "n", long = "name")]
+    name: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -128,7 +128,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(opt.id, pending.clone())),
+        handler: Arc::new(MySH::new(opt.name, pending.clone())),
     };
     let manager = SessionManager::new(config, None);
 

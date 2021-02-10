@@ -32,8 +32,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
-    #[structopt(short = "d", long = "id")]
-    id: String,
+    #[structopt(short = "n", long = "name")]
+    name: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -66,7 +66,7 @@ async fn main() {
     let c_pending = pending.clone();
     let c_barrier = barrier.clone();
     let c_session = session.clone();
-    let id = opt.id;
+    let id = opt.name;
     task::spawn(async move {
         // The resource to wait the response back
         let reskey_pong = RId(c_session
