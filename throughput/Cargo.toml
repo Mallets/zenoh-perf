@@ -59,7 +59,6 @@ name = "s_router_thr"
 [[bin]]
 name = "s_sink_thr_tcp"
 
-
 [[bin]]
 name = "r_pub_thr"
 
@@ -71,3 +70,9 @@ name = "zn_sub_thr"
 
 [[bin]]
 name = "zn_pub_thr"
+
+[[bin]]
+name = "z_sub_thr"
+
+[[bin]]
+name = "z_put_thr"
