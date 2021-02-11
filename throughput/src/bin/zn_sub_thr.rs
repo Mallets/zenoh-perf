@@ -33,6 +33,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
+    #[structopt(short = "t", long = "type")]
+    ttype: String,
 }
 
 #[async_std::main]
@@ -84,8 +86,8 @@ async fn main() {
         let c = messages.swap(0, Ordering::AcqRel);
         if c > 0 {
             println!(
-                "zenoh-net,sub,throughput,{},{},{}",
-                opt.name, opt.payload, c
+                "zenoh-net,{},throughput,{},{},{}",
+                opt.ttype, opt.name, opt.payload, c
             );
         }
     }
