@@ -29,7 +29,7 @@ use zenoh_util::core::ZResult;
 
 // Session Handler for the peer
 struct MySH {
-    ttype: String,
+    scenario: String,
     name: String,
     payload: usize,
     counter: Arc<AtomicUsize>,
@@ -37,9 +37,9 @@ struct MySH {
 }
 
 impl MySH {
-    fn new(ttype: String, name: String, payload: usize, counter: Arc<AtomicUsize>) -> Self {
+    fn new(scenario: String, name: String, payload: usize, counter: Arc<AtomicUsize>) -> Self {
         Self {
-            ttype,
+            scenario,
             name,
             payload,
             counter,
@@ -56,7 +56,7 @@ impl SessionHandler for MySH {
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
         if !self.active.swap(true, Ordering::Acquire) {
             let count = self.counter.clone();
-            let ttype = self.ttype.clone();
+            let scenario = self.scenario.clone();
             let name = self.name.clone();
             let payload = self.payload;
             task::spawn(async move {
@@ -64,7 +64,7 @@ impl SessionHandler for MySH {
                     task::sleep(Duration::from_secs(1)).await;
                     let c = count.swap(0, Ordering::Relaxed);
                     if c > 0 {
-                        println!("session,{},throughput,{},{},{}", ttype, name, payload, c);
+                        println!("session,{},throughput,{},{},{}", scenario, name, payload, c);
                     }
                 }
             });
@@ -108,8 +108,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
-    #[structopt(short = "t", long = "type")]
-    ttype: String,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
 }
 
 #[async_std::main]
@@ -136,7 +136,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(opt.ttype, opt.name, opt.payload, count)),
+        handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
     };
     let manager = SessionManager::new(config, None);
 

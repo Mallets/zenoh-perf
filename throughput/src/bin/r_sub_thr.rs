@@ -146,8 +146,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
-    #[structopt(short = "t", long = "type")]
-    ttype: String,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
 }
 
 #[async_std::main]
@@ -199,7 +199,7 @@ async fn main() {
         if c > 0 {
             println!(
                 "router,{},throughput,{},{},{}",
-                opt.ttype, opt.name, opt.payload, c
+                opt.scenario, opt.name, opt.payload, c
             );
         }
     }
