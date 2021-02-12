@@ -20,7 +20,7 @@ use zenoh_protocol::io::RBuf;
 use zenoh_protocol::session::{DummySessionEventHandler, Mux};
 use zenoh_router::runtime::Runtime;
 use zenoh_util::properties::config::{
-    ConfigProperties, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
+    ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
 #[derive(Debug, StructOpt)]
@@ -46,6 +46,7 @@ async fn main() {
 
     let mut config = ConfigProperties::default();
     config.insert(ZN_MODE_KEY, opt.mode.clone());
+    config.insert(ZN_ADD_TIMESTAMP_KEY, "false".to_string());
 
     if opt.scout {
         config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());

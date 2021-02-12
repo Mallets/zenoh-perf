@@ -40,6 +40,7 @@ async fn main() {
 
     let mut config = Properties::default();
     config.insert("mode".to_string(), opt.mode.clone());
+    config.insert("add_timestamp".to_string(), "false".to_string());
 
     if opt.scout {
         config.insert("multicast_scouting".to_string(), "true".to_string());
