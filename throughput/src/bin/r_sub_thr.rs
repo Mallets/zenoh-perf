@@ -17,14 +17,15 @@ use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
-use zenoh_protocol::core::{
+use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
-use zenoh_protocol::io::RBuf;
-use zenoh_protocol::proto::{DataInfo, RoutingContext};
-use zenoh_protocol::session::Primitives;
-use zenoh_router::runtime::Runtime;
+use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
+use zenoh::net::protocol::session::Primitives;
+use zenoh::net::routing::OutSession;
+use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
@@ -41,7 +42,7 @@ impl ThroughputPrimitives {
 
 #[async_trait]
 impl Primitives for ThroughputPrimitives {
-    async fn resource(&self, _rid: ZInt, _reskey: &ResKey) {
+    async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
@@ -49,7 +50,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
+    async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
@@ -57,7 +58,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn subscriber(
+    async fn decl_subscriber(
         &self,
         _reskey: &ResKey,
         _sub_info: &SubInfo,
@@ -70,7 +71,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
+    async fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
@@ -78,7 +79,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn data(
+    async fn send_data(
         &self,
         _reskey: &ResKey,
         _payload: RBuf,
@@ -90,7 +91,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn query(
+    async fn send_query(
         &self,
         _reskey: &ResKey,
         _predicate: &str,
@@ -102,7 +103,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn reply_data(
+    async fn send_reply_data(
         &self,
         _qid: ZInt,
         _source_kind: ZInt,
@@ -114,11 +115,11 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn reply_final(&self, _qid: ZInt) {
+    async fn send_reply_final(&self, _qid: ZInt) {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn pull(
+    async fn send_pull(
         &self,
         _is_final: bool,
         _reskey: &ResKey,
@@ -128,7 +129,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 
-    async fn close(&self) {
+    async fn send_close(&self) {
         self.count.fetch_add(1, Ordering::AcqRel);
     }
 }
@@ -180,10 +181,10 @@ async fn main() {
         .read()
         .await
         .router
-        .new_primitives(my_primitives)
+        .new_primitives(OutSession::Primitives(my_primitives))
         .await;
 
-    primitives.resource(1, &"/tp".to_string().into()).await;
+    primitives.decl_resource(1, &"/tp".to_string().into()).await;
 
     let rid = ResKey::RId(1);
     let sub_info = SubInfo {
@@ -191,7 +192,7 @@ async fn main() {
         mode: SubMode::Push,
         period: None,
     };
-    primitives.subscriber(&rid, &sub_info, None).await;
+    primitives.decl_subscriber(&rid, &sub_info, None).await;
 
     loop {
         task::sleep(Duration::from_secs(1)).await;

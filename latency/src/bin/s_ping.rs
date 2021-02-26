@@ -18,12 +18,12 @@ use rand::RngCore;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
-use zenoh_protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
-use zenoh_protocol::io::{RBuf, WBuf};
-use zenoh_protocol::link::{Link, Locator};
-use zenoh_protocol::proto::{Data, ZenohBody, ZenohMessage};
-use zenoh_protocol::session::{
-    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
+use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
+use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::link::{Link, Locator};
+use zenoh::net::protocol::proto::{Data, ZenohBody, ZenohMessage};
+use zenoh::net::protocol::session::{
+    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -128,7 +128,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(opt.name, pending.clone())),
+        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(opt.name, pending.clone()))),
     };
     let manager = SessionManager::new(config, None);
 

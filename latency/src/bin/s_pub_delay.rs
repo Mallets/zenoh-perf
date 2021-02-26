@@ -17,11 +17,11 @@ use async_trait::async_trait;
 use rand::RngCore;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
-use zenoh_protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
-use zenoh_protocol::link::Locator;
-use zenoh_protocol::proto::ZenohMessage;
-use zenoh_protocol::session::{
-    DummySessionEventHandler, Session, SessionEventHandler, SessionHandler, SessionManager,
+use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
+use zenoh::net::protocol::link::Locator;
+use zenoh::net::protocol::proto::ZenohMessage;
+use zenoh::net::protocol::session::{
+    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
     SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
@@ -80,7 +80,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new()),
+        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
     };
     let manager = SessionManager::new(config, None);
 

@@ -15,20 +15,22 @@ use async_std::future;
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use structopt::StructOpt;
-use zenoh_protocol::core::{
+use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
-use zenoh_protocol::io::RBuf;
-use zenoh_protocol::proto::{DataInfo, RoutingContext};
-use zenoh_protocol::session::Primitives;
-use zenoh_router::runtime::Runtime;
+use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
+use zenoh::net::protocol::session::Primitives;
+use zenoh::net::routing::face::Face;
+use zenoh::net::routing::OutSession;
+use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
 struct LatencyPrimitives {
-    tx: Mutex<Option<Arc<dyn Primitives + Send + Sync>>>,
+    tx: Mutex<Option<Arc<Face>>>,
 }
 
 impl LatencyPrimitives {
@@ -38,7 +40,7 @@ impl LatencyPrimitives {
         }
     }
 
-    async fn set_tx(&self, tx: Arc<dyn Primitives + Send + Sync>) {
+    async fn set_tx(&self, tx: Arc<Face>) {
         let mut guard = self.tx.lock().await;
         *guard = Some(tx);
     }
@@ -46,11 +48,11 @@ impl LatencyPrimitives {
 
 #[async_trait]
 impl Primitives for LatencyPrimitives {
-    async fn resource(&self, _rid: ZInt, _reskey: &ResKey) {}
+    async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
     async fn forget_resource(&self, _rid: ZInt) {}
-    async fn publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
     async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn subscriber(
+    async fn decl_subscriber(
         &self,
         _reskey: &ResKey,
         _sub_info: &SubInfo,
@@ -58,10 +60,10 @@ impl Primitives for LatencyPrimitives {
     ) {
     }
     async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    async fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
     async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
-    async fn data(
+    async fn send_data(
         &self,
         _reskey: &ResKey,
         payload: RBuf,
@@ -77,7 +79,7 @@ impl Primitives for LatencyPrimitives {
             .await
             .as_ref()
             .unwrap()
-            .data(
+            .send_data(
                 &reskey,
                 payload,
                 reliability,
@@ -88,7 +90,7 @@ impl Primitives for LatencyPrimitives {
             .await;
     }
 
-    async fn query(
+    async fn send_query(
         &self,
         _reskey: &ResKey,
         _predicate: &str,
@@ -98,7 +100,7 @@ impl Primitives for LatencyPrimitives {
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn reply_data(
+    async fn send_reply_data(
         &self,
         _qid: ZInt,
         _source_kind: ZInt,
@@ -108,8 +110,8 @@ impl Primitives for LatencyPrimitives {
         _payload: RBuf,
     ) {
     }
-    async fn reply_final(&self, _qid: ZInt) {}
-    async fn pull(
+    async fn send_reply_final(&self, _qid: ZInt) {}
+    async fn send_pull(
         &self,
         _is_final: bool,
         _reskey: &ResKey,
@@ -117,7 +119,7 @@ impl Primitives for LatencyPrimitives {
         _max_samples: &Option<ZInt>,
     ) {
     }
-    async fn close(&self) {}
+    async fn send_close(&self) {}
 }
 
 #[derive(Debug, StructOpt)]
@@ -159,7 +161,7 @@ async fn main() {
         .read()
         .await
         .router
-        .new_primitives(rx_primitives.clone())
+        .new_primitives(OutSession::Primitives(rx_primitives.clone()))
         .await;
     rx_primitives.set_tx(tx_primitives).await;
 
@@ -169,7 +171,7 @@ async fn main() {
         mode: SubMode::Push,
         period: None,
     };
-    rx_primitives.subscriber(&rid, &sub_info, None).await;
+    rx_primitives.decl_subscriber(&rid, &sub_info, None).await;
 
     // Stop forever
     future::pending::<()>().await;
