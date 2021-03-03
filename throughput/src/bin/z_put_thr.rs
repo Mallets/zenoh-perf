@@ -11,7 +11,11 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
+use async_std::sync::Arc;
+use async_std::task;
 use std::convert::TryFrom;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::RBuf;
 use zenoh::Properties;
@@ -28,6 +32,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "t", long = "print")]
+    print: bool,
 }
 
 #[async_std::main]
@@ -59,7 +65,27 @@ async fn main() {
 
     let path: Path = Path::try_from("/test/thr").unwrap();
     let value = Value::from(data);
-    loop {
-        workspace.put(&path, value.clone()).await.unwrap();
+
+    if opt.print {
+        let count = Arc::new(AtomicUsize::new(0));
+        let c_count = count.clone();
+        task::spawn(async move {
+            loop {
+                task::sleep(Duration::from_secs(1)).await;
+                let c = count.swap(0, Ordering::AcqRel);
+                if c > 0 {
+                    println!("{} msg/s", c);
+                }
+            }
+        });
+
+        loop {
+            workspace.put(&path, value.clone()).await.unwrap();
+            c_count.fetch_add(1, Ordering::AcqRel);
+        }
+    } else {
+        loop {
+            workspace.put(&path, value.clone()).await.unwrap();
+        }
     }
 }

@@ -13,6 +13,7 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh_protocol::core::{CongestionControl, Reliability, ResKey};
@@ -34,6 +35,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "t", long = "print")]
+    print: bool,
 }
 
 #[async_std::main]
@@ -74,16 +77,44 @@ async fn main() {
     task::sleep(Duration::from_millis(1_000)).await;
 
     let payload = RBuf::from(vec![0u8; opt.payload]);
-    loop {
-        primitives
-            .data(
-                &rid,
-                payload.clone(),
-                Reliability::Reliable,
-                CongestionControl::Block,
-                None,
-                None,
-            )
-            .await;
+    if opt.print {
+        let count = Arc::new(AtomicUsize::new(0));
+        let c_count = count.clone();
+        task::spawn(async move {
+            loop {
+                task::sleep(Duration::from_secs(1)).await;
+                let c = count.swap(0, Ordering::AcqRel);
+                if c > 0 {
+                    println!("{} msg/s", c);
+                }
+            }
+        });
+
+        loop {
+            primitives
+                .data(
+                    &rid,
+                    payload.clone(),
+                    Reliability::Reliable,
+                    CongestionControl::Block,
+                    None,
+                    None,
+                )
+                .await;
+            c_count.fetch_add(1, Ordering::AcqRel);
+        }
+    } else {
+        loop {
+            primitives
+                .data(
+                    &rid,
+                    payload.clone(),
+                    Reliability::Reliable,
+                    CongestionControl::Block,
+                    None,
+                    None,
+                )
+                .await;
+        }
     }
 }

@@ -17,7 +17,7 @@ use async_std::sync::Arc;
 use async_std::task;
 use rand::RngCore;
 use std::convert::TryInto;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh_protocol::core::{whatami, PeerId};
@@ -110,25 +110,55 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
             task::sleep(Duration::from_secs(1)).await;
             let c = c_c.swap(0, Ordering::Relaxed);
             if c > 0 {
-                println!("{:.3} Gbit/s", (8_f64 * c as f64) / 1000000000_f64);
+                println!("{:.6} Gbit/s", (8_f64 * c as f64) / 1000000000_f64);
             }
         }
     });
 
+    let active = Arc::new(AtomicBool::new(true));
     let mut c_stream = stream.clone();
+    let c_active = active.clone();
     task::spawn(async move {
-        loop {
+        while c_active.load(Ordering::Acquire) {
             task::sleep(Duration::from_secs(1)).await;
             let message = SessionMessage::make_keep_alive(None, None);
 
-            let _ = zsend!(message, c_stream).unwrap();
+            let res = zsend!(message, c_stream);
+            if res.is_err() {
+                break;
+            }
         }
     });
 
     loop {
-        let n = stream.read(&mut buffer).await.unwrap();
-        counter.fetch_add(n, Ordering::AcqRel);
+        // Read and decode the message length
+        let mut length_bytes = [0u8; 2];
+        let res = stream.read_exact(&mut length_bytes).await;
+        match res {
+            Ok(_) => {
+                let _ = counter.fetch_add(2, Ordering::AcqRel);
+            }
+            Err(_) => {
+                active.store(false, Ordering::Release);
+                break;
+            }
+        }
+
+        let to_read = u16::from_le_bytes(length_bytes) as usize;
+        // Read the message
+        let mut buffer = vec![0u8; to_read];
+        let res = stream.read_exact(&mut buffer).await;
+        match res {
+            Ok(_) => {
+                let _ = counter.fetch_add(to_read as usize, Ordering::AcqRel);
+            }
+            Err(_) => {
+                active.store(false, Ordering::Release);
+                break;
+            }
+        }
     }
+    Ok(())
 }
 
 async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {

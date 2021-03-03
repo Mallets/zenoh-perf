@@ -11,6 +11,10 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
+use async_std::sync::Arc;
+use async_std::task;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
 use zenoh::net::*;
@@ -27,6 +31,8 @@ struct Opt {
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "t", long = "print")]
+    print: bool,
 }
 
 #[async_std::main]
@@ -60,16 +66,45 @@ async fn main() {
         .map(|i| (i % 10) as u8)
         .collect::<Vec<u8>>()
         .into();
-    loop {
-        session
-            .write_ext(
-                &reskey,
-                data.clone(),
-                encoding::DEFAULT,
-                data_kind::DEFAULT,
-                CongestionControl::Block, // Make sure to not drop messages because of congestion control
-            )
-            .await
-            .unwrap();
+
+    if opt.print {
+        let count = Arc::new(AtomicUsize::new(0));
+        let c_count = count.clone();
+        task::spawn(async move {
+            loop {
+                task::sleep(Duration::from_secs(1)).await;
+                let c = count.swap(0, Ordering::AcqRel);
+                if c > 0 {
+                    println!("{} msg/s", c);
+                }
+            }
+        });
+
+        loop {
+            session
+                .write_ext(
+                    &reskey,
+                    data.clone(),
+                    encoding::DEFAULT,
+                    data_kind::DEFAULT,
+                    CongestionControl::Block, // Make sure to not drop messages because of congestion control
+                )
+                .await
+                .unwrap();
+            c_count.fetch_add(1, Ordering::AcqRel);
+        }
+    } else {
+        loop {
+            session
+                .write_ext(
+                    &reskey,
+                    data.clone(),
+                    encoding::DEFAULT,
+                    data_kind::DEFAULT,
+                    CongestionControl::Block, // Make sure to not drop messages because of congestion control
+                )
+                .await
+                .unwrap();
+        }
     }
 }

@@ -12,8 +12,11 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::sync::Arc;
+use async_std::task;
 use async_trait::async_trait;
 use rand::RngCore;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use structopt::StructOpt;
 use zenoh_protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
 use zenoh_protocol::io::RBuf;
@@ -52,6 +55,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
+    #[structopt(short = "t", long = "print")]
+    print: bool,
 }
 
 #[async_std::main]
@@ -105,10 +110,32 @@ async fn main() {
         attachment,
     );
 
-    loop {
-        let res = session.handle_message(message.clone()).await;
-        if res.is_err() {
-            break;
+    if opt.print {
+        let count = Arc::new(AtomicUsize::new(0));
+        let c_count = count.clone();
+        task::spawn(async move {
+            loop {
+                task::sleep(Duration::from_secs(1)).await;
+                let c = count.swap(0, Ordering::AcqRel);
+                if c > 0 {
+                    println!("{} msg/s", c);
+                }
+            }
+        });
+
+        loop {
+            let res = session.handle_message(message.clone()).await;
+            if res.is_err() {
+                break;
+            }
+            c_count.fetch_add(1, Ordering::AcqRel);
+        }
+    } else {
+        loop {
+            let res = session.handle_message(message.clone()).await;
+            if res.is_err() {
+                break;
+            }
         }
     }
 }
