@@ -21,8 +21,8 @@ use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability
 use zenoh::net::protocol::link::Locator;
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler,
+    SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
