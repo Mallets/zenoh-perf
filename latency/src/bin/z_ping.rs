@@ -52,7 +52,7 @@ async fn main() {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap().to_string());
+        config.insert("peer".to_string(), opt.peer.unwrap());
     }
 
     let zenoh = Zenoh::new(config.into()).await.unwrap();

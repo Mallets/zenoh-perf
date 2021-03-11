@@ -16,10 +16,11 @@ use async_std::task;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
-use zenoh_protocol::core::{CongestionControl, Reliability, ResKey};
-use zenoh_protocol::io::RBuf;
-use zenoh_protocol::session::{DummySessionEventHandler, Mux};
-use zenoh_router::runtime::Runtime;
+use zenoh::net::protocol::core::{CongestionControl, Reliability, ResKey};
+use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::session::DummyPrimitives;
+use zenoh::net::routing::OutSession;
+use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
@@ -58,19 +59,19 @@ async fn main() {
         config.insert(ZN_PEER_KEY, opt.peer.unwrap());
     }
 
-    let my_primitives = Arc::new(Mux::new(Arc::new(DummySessionEventHandler::new())));
+    let my_primitives = Arc::new(DummyPrimitives::new());
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let primitives = runtime
         .read()
         .await
         .router
-        .new_primitives(my_primitives)
+        .new_primitives(OutSession::Primitives(my_primitives))
         .await;
 
-    primitives.resource(1, &"/tp".to_string().into()).await;
+    primitives.decl_resource(1, &"/tp".to_string().into()).await;
     let rid = ResKey::RId(1);
-    primitives.publisher(&rid, None).await;
+    primitives.decl_publisher(&rid, None).await;
 
     // @TODO: Fix writer starvation in the RwLock and remove this sleep
     // Wait for the declare to arrive
@@ -92,7 +93,7 @@ async fn main() {
 
         loop {
             primitives
-                .data(
+                .send_data(
                     &rid,
                     payload.clone(),
                     Reliability::Reliable,
@@ -106,7 +107,7 @@ async fn main() {
     } else {
         loop {
             primitives
-                .data(
+                .send_data(
                     &rid,
                     payload.clone(),
                     Reliability::Reliable,

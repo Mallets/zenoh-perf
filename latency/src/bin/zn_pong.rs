@@ -45,8 +45,8 @@ async fn main() {
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
         match opt.mode.as_str() {
-            "peer" => config.insert("listener".to_string(), opt.locator.unwrap().to_string()),
-            "client" => config.insert("peer".to_string(), opt.locator.unwrap().to_string()),
+            "peer" => config.insert("listener".to_string(), opt.locator.unwrap()),
+            "client" => config.insert("peer".to_string(), opt.locator.unwrap()),
             _ => panic!("Unsupported mode: {}", opt.mode),
         };
     }

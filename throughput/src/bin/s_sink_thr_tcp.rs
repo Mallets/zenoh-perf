@@ -20,9 +20,9 @@ use std::convert::TryInto;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
-use zenoh_protocol::core::{whatami, PeerId};
-use zenoh_protocol::io::{RBuf, WBuf};
-use zenoh_protocol::proto::{OpenSyn, SessionBody, SessionMessage};
+use zenoh::net::protocol::core::{whatami, PeerId};
+use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::proto::{OpenSyn, SessionBody, SessionMessage};
 
 macro_rules! zsend {
     ($msg:expr, $stream:expr) => {{
