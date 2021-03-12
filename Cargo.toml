@@ -16,6 +16,7 @@
 members = [
   "throughput",
   "latency",
+  "query",
 ]
 
 [profile.release]

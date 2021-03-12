@@ -33,12 +33,21 @@ use zenoh_util::properties::config::{
 
 struct LatencyPrimitives {
     name: String,
+    interval: f64,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl LatencyPrimitives {
-    pub fn new(name: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> LatencyPrimitives {
-        LatencyPrimitives { name, pending }
+    pub fn new(
+        name: String,
+        interval: f64,
+        pending: Arc<Mutex<HashMap<u64, Instant>>>,
+    ) -> LatencyPrimitives {
+        LatencyPrimitives {
+            name,
+            interval,
+            pending,
+        }
     }
 }
 
@@ -73,9 +82,10 @@ impl Primitives for LatencyPrimitives {
         let count = u64::from_le_bytes(count_bytes);
         let instant = self.pending.lock().await.remove(&count).unwrap();
         println!(
-            "router,ping,latency,{},{},{},{}",
+            "router,ping,latency,{},{},{},{},{}",
             self.name,
             payload.len(),
+            self.interval,
             count,
             instant.elapsed().as_micros()
         );
@@ -126,6 +136,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
+    #[structopt(short = "i", long = "interval")]
+    interval: f64,
 }
 
 #[async_std::main]
@@ -149,7 +161,11 @@ async fn main() {
     let pending: Arc<Mutex<HashMap<u64, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let rx_primitives = Arc::new(LatencyPrimitives::new(opt.name, pending.clone()));
+    let rx_primitives = Arc::new(LatencyPrimitives::new(
+        opt.name,
+        opt.interval,
+        pending.clone(),
+    ));
     let tx_primitives = runtime
         .read()
         .await
@@ -191,6 +207,7 @@ async fn main() {
             )
             .await;
 
+        task::sleep(Duration::from_secs_f64(opt.interval)).await;
         count += 1;
     }
 }

@@ -31,12 +31,17 @@ use zenoh_util::core::ZResult;
 // Session Handler for the peer
 struct MySH {
     name: String,
+    interval: f64,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MySH {
-    fn new(name: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { name, pending }
+    fn new(name: String, interval: f64, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self {
+            name,
+            interval,
+            pending,
+        }
     }
 }
 
@@ -46,19 +51,28 @@ impl SessionHandler for MySH {
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
-        Ok(Arc::new(MyMH::new(self.name.clone(), self.pending.clone())))
+        Ok(Arc::new(MyMH::new(
+            self.name.clone(),
+            self.interval,
+            self.pending.clone(),
+        )))
     }
 }
 
 // Message Handler for the peer
 struct MyMH {
     name: String,
+    interval: f64,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MyMH {
-    fn new(name: String, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
-        Self { name, pending }
+    fn new(name: String, interval: f64, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+        Self {
+            name,
+            interval,
+            pending,
+        }
     }
 }
 
@@ -72,9 +86,10 @@ impl SessionEventHandler for MyMH {
                 let count = u64::from_le_bytes(count_bytes);
                 let instant = self.pending.lock().await.remove(&count).unwrap();
                 println!(
-                    "session,ping,latency,{},{},{},{}",
+                    "session,ping,latency,{},{},{},{},{}",
                     self.name,
                     payload.len(),
+                    self.interval,
                     count,
                     instant.elapsed().as_micros()
                 );
@@ -129,7 +144,11 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(opt.name, pending.clone()))),
+        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(
+            opt.name,
+            opt.interval,
+            pending.clone(),
+        ))),
     };
     let manager = SessionManager::new(config, None);
 

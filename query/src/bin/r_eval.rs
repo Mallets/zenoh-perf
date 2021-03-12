@@ -29,13 +29,13 @@ use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
-struct LatencyPrimitives {
+struct EvalPrimitives {
     tx: Mutex<Option<Arc<Face>>>,
 }
 
-impl LatencyPrimitives {
-    fn new() -> LatencyPrimitives {
-        LatencyPrimitives {
+impl EvalPrimitives {
+    fn new() -> EvalPrimitives {
+        EvalPrimitives {
             tx: Mutex::new(None),
         }
     }
@@ -47,7 +47,7 @@ impl LatencyPrimitives {
 }
 
 #[async_trait]
-impl Primitives for LatencyPrimitives {
+impl Primitives for EvalPrimitives {
     async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
     async fn forget_resource(&self, _rid: ZInt) {}
     async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
@@ -155,7 +155,7 @@ async fn main() {
     }
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let rx_primitives = Arc::new(LatencyPrimitives::new());
+    let rx_primitives = Arc::new(EvalPrimitives::new());
     let tx_primitives = runtime
         .read()
         .await
@@ -165,12 +165,8 @@ async fn main() {
     rx_primitives.set_tx(tx_primitives).await;
 
     let rid = ResKey::RName("/test/ping".to_string());
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-    rx_primitives.decl_subscriber(&rid, &sub_info, None).await;
+    let routing_context = None;
+    rx_primitives.decl_queryable(&rid, routing_context).await;
 
     // Stop forever
     future::pending::<()>().await;
