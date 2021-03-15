@@ -162,7 +162,7 @@ async fn main() {
         .router
         .new_primitives(OutSession::Primitives(rx_primitives.clone()))
         .await;
-    rx_primitives.set_tx(tx_primitives).await;
+    rx_primitives.set_tx(tx_primitives.clone()).await;
 
     let rid = ResKey::RName("/test/ping".to_string());
     let sub_info = SubInfo {
@@ -170,7 +170,7 @@ async fn main() {
         mode: SubMode::Push,
         period: None,
     };
-    rx_primitives.decl_subscriber(&rid, &sub_info, None).await;
+    tx_primitives.decl_subscriber(&rid, &sub_info, None).await;
 
     // Stop forever
     future::pending::<()>().await;

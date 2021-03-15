@@ -203,6 +203,9 @@ async fn main() {
         data.write_bytes(&payload);
         let data: RBuf = data.into();
 
+        // Insert the pending ping
+        pending.lock().await.insert(count, Instant::now());
+
         tx_primitives
             .send_data(
                 &reskey,
