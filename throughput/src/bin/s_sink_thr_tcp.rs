@@ -136,7 +136,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         let res = stream.read_exact(&mut length_bytes).await;
         match res {
             Ok(_) => {
-                let _ = counter.fetch_add(2, Ordering::AcqRel);
+                let _ = counter.fetch_add(2, Ordering::Relaxed);
             }
             Err(_) => {
                 active.store(false, Ordering::Release);
@@ -150,7 +150,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         let res = stream.read_exact(&mut buffer).await;
         match res {
             Ok(_) => {
-                let _ = counter.fetch_add(to_read as usize, Ordering::AcqRel);
+                let _ = counter.fetch_add(to_read as usize, Ordering::Relaxed);
             }
             Err(_) => {
                 active.store(false, Ordering::Release);

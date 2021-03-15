@@ -68,14 +68,14 @@ async fn main() {
 
     let _sub = workspace
         .subscribe_with_callback(&selector, move |_change| {
-            c_messages.fetch_add(1, Ordering::AcqRel);
+            c_messages.fetch_add(1, Ordering::Relaxed);
         })
         .await
         .unwrap();
 
     loop {
         task::sleep(Duration::from_secs(1)).await;
-        let c = messages.swap(0, Ordering::AcqRel);
+        let c = messages.swap(0, Ordering::Relaxed);
         if c > 0 {
             println!(
                 "zenoh,{},throughput,{},{},{}",

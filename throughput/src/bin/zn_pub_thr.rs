@@ -73,7 +73,7 @@ async fn main() {
         task::spawn(async move {
             loop {
                 task::sleep(Duration::from_secs(1)).await;
-                let c = count.swap(0, Ordering::AcqRel);
+                let c = count.swap(0, Ordering::Relaxed);
                 if c > 0 {
                     println!("{} msg/s", c);
                 }
@@ -91,7 +91,7 @@ async fn main() {
                 )
                 .await
                 .unwrap();
-            c_count.fetch_add(1, Ordering::AcqRel);
+            c_count.fetch_add(1, Ordering::Relaxed);
         }
     } else {
         loop {

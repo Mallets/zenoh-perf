@@ -43,19 +43,19 @@ impl ThroughputPrimitives {
 #[async_trait]
 impl Primitives for ThroughputPrimitives {
     async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn forget_resource(&self, _rid: ZInt) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn decl_subscriber(
@@ -64,19 +64,19 @@ impl Primitives for ThroughputPrimitives {
         _sub_info: &SubInfo,
         _routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_data(
@@ -88,7 +88,7 @@ impl Primitives for ThroughputPrimitives {
         _data_info: Option<DataInfo>,
         _routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_query(
@@ -100,7 +100,7 @@ impl Primitives for ThroughputPrimitives {
         _consolidation: QueryConsolidation,
         _routing_context: Option<RoutingContext>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_reply_data(
@@ -112,11 +112,11 @@ impl Primitives for ThroughputPrimitives {
         _info: Option<DataInfo>,
         _payload: RBuf,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_reply_final(&self, _qid: ZInt) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_pull(
@@ -126,11 +126,11 @@ impl Primitives for ThroughputPrimitives {
         _pull_id: ZInt,
         _max_samples: &Option<ZInt>,
     ) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 
     async fn send_close(&self) {
-        self.count.fetch_add(1, Ordering::AcqRel);
+        self.count.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -196,7 +196,7 @@ async fn main() {
 
     loop {
         task::sleep(Duration::from_secs(1)).await;
-        let c = count.swap(0, Ordering::AcqRel);
+        let c = count.swap(0, Ordering::Relaxed);
         if c > 0 {
             println!(
                 "router,{},throughput,{},{},{}",
