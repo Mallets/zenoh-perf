@@ -89,7 +89,7 @@ async fn main() {
 
                     let instant = c_pending.lock().await.remove(&count).unwrap();
                     println!(
-                        "zenoh-net,{},latency,{},{},{},{},{}",
+                        "zenoh,{},latency,{},{},{},{},{}",
                         scenario,
                         name,
                         payload.len(),
