@@ -192,7 +192,6 @@ async fn main() {
     let consolidation = QueryConsolidation::default();
     let routing_context = None;
     loop {
-        // Create and send the message
         tx_primitives
             .send_query(
                 &reskey,
@@ -203,5 +202,7 @@ async fn main() {
                 routing_context,
             )
             .await;
+
+        task::sleep(Duration::from_secs_f64(opt.interval)).await;
     }
 }

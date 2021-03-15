@@ -33,6 +33,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -65,7 +67,8 @@ async fn main() {
     let c_pending = pending.clone();
     let c_barrier = barrier.clone();
     let c_zenoh = zenoh.clone();
-    let id = opt.name;
+    let scenario = opt.scenario;
+    let name = opt.name;
     let interval = opt.interval;
     task::spawn(async move {
         let workspace = c_zenoh.workspace(None).await.unwrap();
@@ -86,8 +89,9 @@ async fn main() {
 
                     let instant = c_pending.lock().await.remove(&count).unwrap();
                     println!(
-                        "zenoh,ping,latency,{},{},{},{},{}",
-                        id,
+                        "zenoh-net,{},latency,{},{},{},{},{}",
+                        scenario,
+                        name,
                         payload.len(),
                         interval,
                         count,

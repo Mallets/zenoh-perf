@@ -16,8 +16,7 @@ use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
-    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
-    SubMode, ZInt,
+    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
 };
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};

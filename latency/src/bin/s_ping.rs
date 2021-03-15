@@ -30,14 +30,21 @@ use zenoh_util::core::ZResult;
 
 // Session Handler for the peer
 struct MySH {
+    scenario: String,
     name: String,
     interval: f64,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MySH {
-    fn new(name: String, interval: f64, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+    fn new(
+        scenario: String,
+        name: String,
+        interval: f64,
+        pending: Arc<Mutex<HashMap<u64, Instant>>>,
+    ) -> Self {
         Self {
+            scenario,
             name,
             interval,
             pending,
@@ -52,6 +59,7 @@ impl SessionHandler for MySH {
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
         Ok(Arc::new(MyMH::new(
+            self.scenario.clone(),
             self.name.clone(),
             self.interval,
             self.pending.clone(),
@@ -61,14 +69,21 @@ impl SessionHandler for MySH {
 
 // Message Handler for the peer
 struct MyMH {
+    scenario: String,
     name: String,
     interval: f64,
     pending: Arc<Mutex<HashMap<u64, Instant>>>,
 }
 
 impl MyMH {
-    fn new(name: String, interval: f64, pending: Arc<Mutex<HashMap<u64, Instant>>>) -> Self {
+    fn new(
+        scenario: String,
+        name: String,
+        interval: f64,
+        pending: Arc<Mutex<HashMap<u64, Instant>>>,
+    ) -> Self {
         Self {
+            scenario,
             name,
             interval,
             pending,
@@ -86,7 +101,8 @@ impl SessionEventHandler for MyMH {
                 let count = u64::from_le_bytes(count_bytes);
                 let instant = self.pending.lock().await.remove(&count).unwrap();
                 println!(
-                    "session,ping,latency,{},{},{},{},{}",
+                    "session,{},latency,{},{},{},{},{}",
+                    self.scenario,
                     self.name,
                     payload.len(),
                     self.interval,
@@ -116,6 +132,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
 }
@@ -145,6 +163,7 @@ async fn main() {
         whatami,
         id: pid,
         handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(
+            opt.scenario,
             opt.name,
             opt.interval,
             pending.clone(),
