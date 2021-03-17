@@ -27,8 +27,6 @@ struct Opt {
     peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "n", long = "name")]
@@ -37,26 +35,11 @@ struct Opt {
     scenario: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
+    #[structopt(long = "parallel")]
+    parallel: bool,
 }
 
-#[async_std::main]
-async fn main() {
-    // initiate logging
-    env_logger::init();
-
-    // Parse the args
-    let opt = Opt::from_args();
-
-    let mut config = Properties::default();
-    config.insert("mode".to_string(), opt.mode.clone());
-
-    if opt.scout {
-        config.insert("multicast_scouting".to_string(), "true".to_string());
-    } else {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap());
-    }
-
+async fn parallel(opt: Opt, config: Properties) {
     let zenoh = Zenoh::new(config.into()).await.unwrap();
     let zenoh = Arc::new(zenoh);
 
@@ -89,7 +72,7 @@ async fn main() {
 
                     let instant = c_pending.lock().await.remove(&count).unwrap();
                     println!(
-                        "zenoh,{},latency,{},{},{},{},{}",
+                        "zenoh,{},latency.parallel,{},{},{},{},{}",
                         scenario,
                         name,
                         payload.len(),
@@ -122,5 +105,79 @@ async fn main() {
 
         task::sleep(Duration::from_secs_f64(opt.interval)).await;
         count += 1;
+    }
+}
+
+async fn single(opt: Opt, config: Properties) {
+    let zenoh = Zenoh::new(config.into()).await.unwrap();
+
+    let scenario = opt.scenario;
+    let name = opt.name;
+    let interval = opt.interval;
+
+    let workspace = zenoh.workspace(None).await.unwrap();
+    let mut sub = workspace
+        .subscribe(&"/test/pong/".to_string().try_into().unwrap())
+        .await
+        .unwrap();
+
+    let mut count: u64 = 0;
+    loop {
+        let count_bytes: [u8; 8] = count.to_le_bytes();
+        let mut payload = vec![0u8; opt.payload];
+        payload[0..8].copy_from_slice(&count_bytes);
+
+        let now = Instant::now();
+        workspace
+            .put(&"/test/ping".try_into().unwrap(), payload.into())
+            .await
+            .unwrap();
+
+        match sub.next().await.unwrap().value.unwrap() {
+            Value::Raw(_, mut payload) => {
+                let mut count_bytes = [0u8; 8];
+                payload.read_bytes(&mut count_bytes);
+                let s_count = u64::from_le_bytes(count_bytes);
+
+                println!(
+                    "zenoh,{},latency.sequential,{},{},{},{},{}",
+                    scenario,
+                    name,
+                    payload.len(),
+                    interval,
+                    s_count,
+                    now.elapsed().as_micros()
+                );
+            }
+            _ => panic!("Invalid value"),
+        }
+
+        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        count += 1;
+    }
+}
+
+#[async_std::main]
+async fn main() {
+    // initiate logging
+    env_logger::init();
+
+    // Parse the args
+    let opt = Opt::from_args();
+
+    let mut config = Properties::default();
+    config.insert("mode".to_string(), opt.mode.clone());
+
+    if opt.peer.is_none() {
+        config.insert("multicast_scouting".to_string(), "true".to_string());
+    } else {
+        config.insert("multicast_scouting".to_string(), "false".to_string());
+        config.insert("peer".to_string(), opt.peer.clone().unwrap());
+    }
+
+    if opt.parallel {
+        parallel(opt, config).await;
+    } else {
+        single(opt, config).await;
     }
 }

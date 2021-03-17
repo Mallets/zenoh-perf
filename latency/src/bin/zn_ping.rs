@@ -28,8 +28,6 @@ struct Opt {
     peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "n", long = "name")]
@@ -38,26 +36,77 @@ struct Opt {
     scenario: String,
     #[structopt(short = "i", long = "interval")]
     interval: f64,
+    #[structopt(long = "parallel")]
+    parallel: bool,
 }
 
-#[async_std::main]
-async fn main() {
-    // initiate logging
-    env_logger::init();
+async fn single(opt: Opt, config: Properties) {
+    let session = open(config.into()).await.unwrap();
 
-    // Parse the args
-    let opt = Opt::from_args();
+    // The resource to wait the response back
+    let reskey_pong = RId(session
+        .declare_resource(&RName("/test/pong".to_string()))
+        .await
+        .unwrap());
+    let sub_info = SubInfo {
+        reliability: Reliability::Reliable,
+        mode: SubMode::Push,
+        period: None,
+    };
+    let mut sub = session
+        .declare_subscriber(&reskey_pong, &sub_info)
+        .await
+        .unwrap();
 
-    let mut config = Properties::default();
-    config.insert("mode".to_string(), opt.mode.clone());
+    // The resource to publish data on
+    let reskey_ping = RId(session
+        .declare_resource(&RName("/test/ping".to_string()))
+        .await
+        .unwrap());
+    let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
 
-    if opt.scout {
-        config.insert("multicast_scouting".to_string(), "true".to_string());
-    } else {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap());
+    let sleep = Duration::from_secs_f64(opt.interval);
+    let payload = vec![0u8; opt.payload - 8];
+    let mut count: u64 = 0;
+    loop {
+        let mut data: WBuf = WBuf::new(opt.payload, true);
+        let count_bytes: [u8; 8] = count.to_le_bytes();
+        data.write_bytes(&count_bytes);
+        data.write_bytes(&payload);
+        let data: RBuf = data.into();
+
+        let now = Instant::now();
+        session
+            .write_ext(
+                &reskey_ping,
+                data,
+                encoding::DEFAULT,
+                data_kind::DEFAULT,
+                CongestionControl::Block, // Make sure to not drop messages because of congestion control
+            )
+            .await
+            .unwrap();
+
+        let mut sample = sub.stream().next().await.unwrap();
+        let mut count_bytes = [0u8; 8];
+        sample.payload.read_bytes(&mut count_bytes);
+        let s_count = u64::from_le_bytes(count_bytes);
+        println!(
+            "zenoh-net,{},latency.sequential,{},{},{},{},{}",
+            opt.scenario,
+            opt.name,
+            sample.payload.len(),
+            opt.interval,
+            s_count,
+            now.elapsed().as_micros()
+        );
+
+        task::sleep(sleep).await;
+        count += 1;
     }
+}
 
+async fn parallel(opt: Opt, config: Properties) {
     let session = open(config.into()).await.unwrap();
     let session = Arc::new(session);
 
@@ -97,7 +146,7 @@ async fn main() {
             let count = u64::from_le_bytes(count_bytes);
             let instant = c_pending.lock().await.remove(&count).unwrap();
             println!(
-                "zenoh-net,{},latency,{},{},{},{},{}",
+                "zenoh-net,{},latency.parallel,{},{},{},{},{}",
                 scenario,
                 name,
                 sample.payload.len(),
@@ -118,6 +167,7 @@ async fn main() {
     // Wait for the both publishers and subscribers to be declared
     barrier.wait().await;
 
+    let sleep = Duration::from_secs_f64(opt.interval);
     let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     loop {
@@ -140,7 +190,32 @@ async fn main() {
             .await
             .unwrap();
 
-        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        task::sleep(sleep).await;
         count += 1;
+    }
+}
+
+#[async_std::main]
+async fn main() {
+    // initiate logging
+    env_logger::init();
+
+    // Parse the args
+    let opt = Opt::from_args();
+
+    let mut config = Properties::default();
+    config.insert("mode".to_string(), opt.mode.clone());
+
+    if opt.peer.is_none() {
+        config.insert("multicast_scouting".to_string(), "true".to_string());
+    } else {
+        config.insert("multicast_scouting".to_string(), "false".to_string());
+        config.insert("peer".to_string(), opt.peer.clone().unwrap());
+    }
+
+    if opt.parallel {
+        parallel(opt, config).await;
+    } else {
+        single(opt, config).await;
     }
 }
