@@ -11,10 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::future;
-use async_std::stream::StreamExt;
+use futures::prelude::*;
 use structopt::StructOpt;
-use zenoh::net::ResKey::*;
+use zenoh::net::queryable::EVAL;
 use zenoh::net::*;
 use zenoh::Properties;
 
@@ -27,6 +26,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "s", long = "scout")]
     scout: bool,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -53,41 +54,17 @@ async fn main() {
 
     let session = open(config.into()).await.unwrap();
 
-    // The resource to echo the data back
-    let reskey_pong = RId(session
-        .declare_resource(&RName("/test/pong".to_string()))
-        .await
-        .unwrap());
-    let _publ = session.declare_publisher(&reskey_pong).await.unwrap();
-
     // The resource to read the data from
-    let reskey_ping = RId(session
-        .declare_resource(&RName("/test/ping".to_string()))
-        .await
-        .unwrap());
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-
-    let mut sub = session
-        .declare_subscriber(&reskey_ping, &sub_info)
-        .await
-        .unwrap();
-    while let Some(sample) = sub.stream().next().await {
-        session
-            .write_ext(
-                &reskey_pong,
-                sample.payload,
-                encoding::DEFAULT,
-                data_kind::DEFAULT,
-                CongestionControl::Block, // Make sure to not drop messages because of congestion control
-            )
-            .await
-            .unwrap();
+    let path = "/test/query".to_string();
+    let reskey = ResKey::RName(path.clone());
+    let mut queryable = session.declare_queryable(&reskey, EVAL).await.unwrap();
+    while let Some(query) = queryable.stream().next().await {
+        query
+            .reply(Sample {
+                res_name: path.clone(),
+                payload: vec![0u8; opt.payload].into(),
+                data_info: None,
+            })
+            .await;
     }
-
-    // Stop forever
-    future::pending::<()>().await;
 }

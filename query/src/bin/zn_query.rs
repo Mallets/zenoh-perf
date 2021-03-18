@@ -11,13 +11,11 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
-use async_std::sync::{Arc, Barrier, Mutex};
-use async_std::task;
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use async_std::sync::Arc;
+use futures::prelude::*;
+use std::time::Instant;
 use structopt::StructOpt;
-use zenoh::net::ResKey::*;
+use zenoh::net::ResKey;
 use zenoh::net::*;
 use zenoh::Properties;
 
@@ -28,14 +26,10 @@ struct Opt {
     peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
-    scout: bool,
-    #[structopt(short = "p", long = "payload")]
-    payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
-    #[structopt(short = "i", long = "interval")]
-    interval: f64,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
 }
 
 #[async_std::main]
@@ -49,7 +43,7 @@ async fn main() {
     let mut config = Properties::default();
     config.insert("mode".to_string(), opt.mode.clone());
 
-    if opt.scout {
+    if opt.peer.is_none() {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
@@ -59,84 +53,32 @@ async fn main() {
     let session = open(config.into()).await.unwrap();
     let session = Arc::new(session);
 
-    // The hashmap with the pings
-    let pending = Arc::new(Mutex::new(HashMap::<u64, Instant>::new()));
-    let barrier = Arc::new(Barrier::new(2));
-
-    let c_pending = pending.clone();
-    let c_barrier = barrier.clone();
-    let c_session = session.clone();
-    let id = opt.name;
-    let interval = opt.interval;
-    task::spawn(async move {
-        // The resource to wait the response back
-        let reskey_pong = RId(c_session
-            .declare_resource(&RName("/test/pong".to_string()))
-            .await
-            .unwrap());
-
-        let sub_info = SubInfo {
-            reliability: Reliability::Reliable,
-            mode: SubMode::Push,
-            period: None,
-        };
-        let mut sub = c_session
-            .declare_subscriber(&reskey_pong, &sub_info)
-            .await
-            .unwrap();
-
-        // Wait for the both publishers and subscribers to be declared
-        c_barrier.wait().await;
-
-        while let Some(mut sample) = sub.stream().next().await {
-            let mut count_bytes = [0u8; 8];
-            sample.payload.read_bytes(&mut count_bytes);
-            let count = u64::from_le_bytes(count_bytes);
-            let instant = c_pending.lock().await.remove(&count).unwrap();
-            println!(
-                "zenoh-net,ping,latency,{},{},{},{},{}",
-                id,
-                sample.payload.len(),
-                interval,
-                count,
-                instant.elapsed().as_micros()
-            );
-        }
-    });
-
-    // The resource to publish data on
-    let reskey_ping = RId(session
-        .declare_resource(&RName("/test/ping".to_string()))
-        .await
-        .unwrap());
-    let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
-
-    // Wait for the both publishers and subscribers to be declared
-    barrier.wait().await;
-
-    let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     loop {
-        let mut data: WBuf = WBuf::new(opt.payload, true);
-        let count_bytes: [u8; 8] = count.to_le_bytes();
-        data.write_bytes(&count_bytes);
-        data.write_bytes(&payload);
+        let reskey = ResKey::RName("/test/query".to_string());
+        let predicate = "";
+        let target = QueryTarget::default();
+        let consolidation = QueryConsolidation::default();
 
-        let data: RBuf = data.into();
-
-        pending.lock().await.insert(count, Instant::now());
-        session
-            .write_ext(
-                &reskey_ping,
-                data,
-                encoding::DEFAULT,
-                data_kind::DEFAULT,
-                CongestionControl::Block, // Make sure to not drop messages because of congestion control
-            )
+        let now = Instant::now();
+        let mut replies = session
+            .query(&reskey, predicate, target, consolidation)
             .await
             .unwrap();
 
-        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        let mut payload: usize = 0;
+        while let Some(reply) = replies.next().await {
+            payload += reply.data.payload.len();
+        }
+        println!(
+            "zenoh-net,{},query,{},{},{},{}",
+            opt.scenario,
+            opt.name,
+            payload,
+            count,
+            now.elapsed().as_micros()
+        );
+
         count += 1;
     }
 }

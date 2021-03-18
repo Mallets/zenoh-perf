@@ -35,6 +35,7 @@ maintenance = { status = "actively-developed" }
 async-std = { version = "=1.9.0", features = ["unstable"] }
 async-trait = "0.1.42"
 env_logger = "0.8.2"
+futures = "0.3.13"
 log = "0.4.14"
 rand = "0.8.3"
 slab = "0.4.2"
