@@ -19,7 +19,7 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::link::{Link, Locator};
-use zenoh::net::protocol::proto::ZenohMessage;
+use zenoh::net::protocol::proto::{Query, ReplyContext, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
     Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
     SessionManagerConfig,
@@ -61,28 +61,39 @@ impl MyMH {
 
 #[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, _message: ZenohMessage) -> ZResult<()> {
-        // Send reliable messages
-        let reliability = Reliability::Reliable;
-        let congestion_control = CongestionControl::Block;
-        let key = ResKey::RName("test".to_string());
-        let info = None;
-        let payload = RBuf::from(vec![0u8; self.payload]);
-        let reply_context = None;
-        let routing_context = None;
-        let attachment = None;
+    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+        match message.body {
+            ZenohBody::Query(Query { qid, .. }) => {
+                // Send reliable messages
+                let reliability = Reliability::Reliable;
+                let congestion_control = CongestionControl::Block;
+                let key = ResKey::RName("/test/eval".to_string());
+                let info = None;
+                let payload = RBuf::from(vec![0u8; self.payload]);
+                let routing_context = None;
+                let reply_context = Some(ReplyContext {
+                    is_final: true,
+                    qid,
+                    source_kind: 0,
+                    replier_id: None,
+                });
+                let attachment = None;
 
-        let message = ZenohMessage::make_data(
-            key,
-            payload,
-            reliability,
-            congestion_control,
-            info,
-            routing_context,
-            reply_context,
-            attachment,
-        );
-        self.session.handle_message(message).await
+                let message = ZenohMessage::make_data(
+                    key,
+                    payload,
+                    reliability,
+                    congestion_control,
+                    info,
+                    routing_context,
+                    reply_context,
+                    attachment,
+                );
+
+                self.session.handle_message(message).await
+            }
+            _ => panic!("Invalid message"),
+        }
     }
 
     async fn new_link(&self, _link: Link) {}
