@@ -94,6 +94,7 @@ impl Primitives for EvalPrimitives {
         let payload = RBuf::from(vec![0u8; self.payload]);
         let tx_primitives = self.tx.lock().await.as_ref().unwrap().clone();
 
+        // @TODO: once the router is re-entrant remove the task spawn
         task::spawn(async move {
             tx_primitives
                 .send_reply_data(qid, source_kind, pid, reskey, info, payload)
