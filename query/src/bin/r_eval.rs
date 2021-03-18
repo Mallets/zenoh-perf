@@ -13,7 +13,9 @@
 //
 use async_std::future;
 use async_std::sync::{Arc, Mutex};
+use async_std::task;
 use async_trait::async_trait;
+use rand::RngCore;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
@@ -29,12 +31,16 @@ use zenoh_util::properties::config::{
 };
 
 struct EvalPrimitives {
+    pid: PeerId,
+    payload: usize,
     tx: Mutex<Option<Arc<Face>>>,
 }
 
 impl EvalPrimitives {
-    fn new() -> EvalPrimitives {
+    fn new(pid: PeerId, payload: usize) -> EvalPrimitives {
         EvalPrimitives {
+            pid,
+            payload,
             tx: Mutex::new(None),
         }
     }
@@ -65,38 +71,35 @@ impl Primitives for EvalPrimitives {
     async fn send_data(
         &self,
         _reskey: &ResKey,
-        payload: RBuf,
-        reliability: Reliability,
-        congestion_control: CongestionControl,
-        data_info: Option<DataInfo>,
-        routing_context: Option<RoutingContext>,
+        _payload: RBuf,
+        _reliability: Reliability,
+        _congestion_control: CongestionControl,
+        _data_info: Option<DataInfo>,
+        _routing_context: Option<RoutingContext>,
     ) {
-        let reskey = ResKey::RName("/test/pong".to_string());
-        self.tx
-            .lock()
-            .await
-            .as_ref()
-            .unwrap()
-            .send_data(
-                &reskey,
-                payload,
-                reliability,
-                congestion_control,
-                data_info,
-                routing_context,
-            )
-            .await;
     }
-
     async fn send_query(
         &self,
-        _reskey: &ResKey,
+        reskey: &ResKey,
         _predicate: &str,
-        _qid: ZInt,
+        qid: ZInt,
         _target: QueryTarget,
         _consolidation: QueryConsolidation,
         _routing_context: Option<RoutingContext>,
     ) {
+        let reskey = reskey.clone();
+        let source_kind = 0;
+        let pid = self.pid.clone();
+        let info = None;
+        let payload = RBuf::from(vec![0u8; self.payload]);
+        let tx_primitives = self.tx.lock().await.as_ref().unwrap().clone();
+
+        task::spawn(async move {
+            tx_primitives
+                .send_reply_data(qid, source_kind, pid, reskey, info, payload)
+                .await;
+            tx_primitives.send_reply_final(qid).await;
+        });
     }
     async fn send_reply_data(
         &self,
@@ -129,6 +132,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "s", long = "scout")]
     scout: bool,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -154,18 +159,22 @@ async fn main() {
     }
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let rx_primitives = Arc::new(EvalPrimitives::new());
+    let mut pid = [0u8; PeerId::MAX_SIZE];
+    rand::thread_rng().fill_bytes(&mut pid);
+    let pid = PeerId::new(1, pid);
+
+    let rx_primitives = Arc::new(EvalPrimitives::new(pid, opt.payload));
     let tx_primitives = runtime
         .read()
         .await
         .router
         .new_primitives(OutSession::Primitives(rx_primitives.clone()))
         .await;
-    rx_primitives.set_tx(tx_primitives).await;
+    rx_primitives.set_tx(tx_primitives.clone()).await;
 
-    let rid = ResKey::RName("/test/ping".to_string());
+    let rid = ResKey::RName("/test/query".to_string());
     let routing_context = None;
-    rx_primitives.decl_queryable(&rid, routing_context).await;
+    tx_primitives.decl_queryable(&rid, routing_context).await;
 
     // Stop forever
     future::pending::<()>().await;

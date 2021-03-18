@@ -11,16 +11,13 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::{Arc, Mutex};
-use async_std::task;
+use async_std::sync::{Arc, Barrier, Mutex};
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::time::Duration;
 use std::time::Instant;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
-    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
-    SubMode, ZInt,
+    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
 };
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
@@ -31,21 +28,19 @@ use zenoh_util::properties::config::{
     ConfigProperties, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
+type Pending = Arc<Mutex<HashMap<u64, (Instant, Arc<Barrier>)>>>;
+
 struct QueryPrimitives {
+    scenario: String,
     name: String,
-    interval: f64,
-    pending: Arc<Mutex<HashMap<u64, Instant>>>,
+    pending: Pending,
 }
 
 impl QueryPrimitives {
-    pub fn new(
-        name: String,
-        interval: f64,
-        pending: Arc<Mutex<HashMap<u64, Instant>>>,
-    ) -> QueryPrimitives {
+    pub fn new(scenario: String, name: String, pending: Pending) -> QueryPrimitives {
         QueryPrimitives {
+            scenario,
             name,
-            interval,
             pending,
         }
     }
@@ -71,26 +66,13 @@ impl Primitives for QueryPrimitives {
     async fn send_data(
         &self,
         _reskey: &ResKey,
-        mut payload: RBuf,
+        _payload: RBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
         _routing_context: Option<RoutingContext>,
     ) {
-        let mut count_bytes = [0u8; 8];
-        payload.read_bytes(&mut count_bytes);
-        let count = u64::from_le_bytes(count_bytes);
-        let instant = self.pending.lock().await.remove(&count).unwrap();
-        println!(
-            "router,ping,query,{},{},{},{},{}",
-            self.name,
-            payload.len(),
-            self.interval,
-            count,
-            instant.elapsed().as_micros()
-        );
     }
-
     async fn send_query(
         &self,
         _reskey: &ResKey,
@@ -103,13 +85,24 @@ impl Primitives for QueryPrimitives {
     }
     async fn send_reply_data(
         &self,
-        _qid: ZInt,
+        qid: ZInt,
         _source_kind: ZInt,
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        payload: RBuf,
     ) {
+        let tuple = self.pending.lock().await.remove(&qid).unwrap();
+        let (instant, barrier) = (tuple.0, tuple.1);
+        barrier.wait().await;
+        println!(
+            "router,{},query,{},{},{},{}",
+            self.scenario,
+            self.name,
+            payload.len(),
+            qid,
+            instant.elapsed().as_micros()
+        );
     }
     async fn send_reply_final(&self, _qid: ZInt) {}
     async fn send_pull(
@@ -130,14 +123,10 @@ struct Opt {
     peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
-    scout: bool,
-    #[structopt(short = "p", long = "payload")]
-    payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
-    #[structopt(short = "i", long = "interval")]
-    interval: f64,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
 }
 
 #[async_std::main]
@@ -151,19 +140,19 @@ async fn main() {
     let mut config = ConfigProperties::default();
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
-    if opt.scout {
+    if opt.peer.is_none() {
         config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
     } else {
         config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
         config.insert(ZN_PEER_KEY, opt.peer.unwrap());
     }
 
-    let pending: Arc<Mutex<HashMap<u64, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
+    let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let rx_primitives = Arc::new(QueryPrimitives::new(
+        opt.scenario,
         opt.name,
-        opt.interval,
         pending.clone(),
     ));
     let tx_primitives = runtime
@@ -173,25 +162,21 @@ async fn main() {
         .new_primitives(OutSession::Primitives(rx_primitives))
         .await;
 
-    let rid = ResKey::RName("/test/pong".to_string());
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-    tx_primitives.decl_subscriber(&rid, &sub_info, None).await;
-
-    // @TODO: Fix writer starvation in the RwLock and remove this sleep
-    // Wait for the declare to arrive
-    task::sleep(Duration::from_millis(1_000)).await;
-
-    let reskey = ResKey::RName("/test/ping".to_string());
-    let predicate = "";
-    let qid = 0;
-    let target = QueryTarget::default();
-    let consolidation = QueryConsolidation::default();
-    let routing_context = None;
+    let barrier = Arc::new(Barrier::new(2));
+    let mut count: u64 = 0;
     loop {
+        let reskey = ResKey::RName("/test/query".to_string());
+        let predicate = "";
+        let qid = count;
+        let target = QueryTarget::default();
+        let consolidation = QueryConsolidation::default();
+        let routing_context = None;
+
+        // Insert the pending query
+        pending
+            .lock()
+            .await
+            .insert(count, (Instant::now(), barrier.clone()));
         tx_primitives
             .send_query(
                 &reskey,
@@ -202,7 +187,9 @@ async fn main() {
                 routing_context,
             )
             .await;
+        // Wait for the reply to arrive
+        barrier.wait().await;
 
-        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        count += 1;
     }
 }

@@ -67,7 +67,7 @@ impl SessionEventHandler for MyMH {
                 // Send reliable messages
                 let reliability = Reliability::Reliable;
                 let congestion_control = CongestionControl::Block;
-                let key = ResKey::RName("/test/eval".to_string());
+                let key = ResKey::RName("/test/query".to_string());
                 let info = None;
                 let payload = RBuf::from(vec![0u8; self.payload]);
                 let routing_context = None;
