@@ -20,7 +20,7 @@ use zenoh::net::*;
 use zenoh::Properties;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "zn_ping")]
+#[structopt(name = "zn_query")]
 struct Opt {
     #[structopt(short = "e", long = "peer")]
     peer: Option<String>,

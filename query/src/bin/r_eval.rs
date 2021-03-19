@@ -125,7 +125,7 @@ impl Primitives for EvalPrimitives {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "r_sub_thr")]
+#[structopt(name = "r_eval")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
     locator: Option<String>,

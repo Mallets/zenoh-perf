@@ -18,7 +18,7 @@ use zenoh::net::*;
 use zenoh::Properties;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "zn_pong")]
+#[structopt(name = "zn_eval")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
     locator: Option<String>,

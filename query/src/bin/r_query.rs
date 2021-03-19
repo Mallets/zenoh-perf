@@ -117,7 +117,7 @@ impl Primitives for QueryPrimitives {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "r_pub_thr")]
+#[structopt(name = "r_query")]
 struct Opt {
     #[structopt(short = "e", long = "peer")]
     peer: Option<String>,

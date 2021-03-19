@@ -12,29 +12,22 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::stream::StreamExt;
-use async_std::sync::{Arc, Barrier, Mutex};
-use async_std::task;
-use std::collections::HashMap;
 use std::convert::TryInto;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use structopt::StructOpt;
 use zenoh::*;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "z_ping")]
+#[structopt(name = "z_query")]
 struct Opt {
     #[structopt(short = "e", long = "peer")]
     peer: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
-    scout: bool,
-    #[structopt(short = "p", long = "payload")]
-    payload: usize,
     #[structopt(short = "n", long = "name")]
     name: String,
-    #[structopt(short = "i", long = "interval")]
-    interval: f64,
+    #[structopt(short = "s", long = "scenario")]
+    scenario: String,
 }
 
 #[async_std::main]
@@ -48,7 +41,7 @@ async fn main() {
     let mut config = Properties::default();
     config.insert("mode".to_string(), opt.mode.clone());
 
-    if opt.scout {
+    if opt.peer.is_none() {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
@@ -56,67 +49,46 @@ async fn main() {
     }
 
     let zenoh = Zenoh::new(config.into()).await.unwrap();
-    let zenoh = Arc::new(zenoh);
-
-    // The hashmap with the pings
-    let pending = Arc::new(Mutex::new(HashMap::<u64, Instant>::new()));
-    let barrier = Arc::new(Barrier::new(2));
-
-    let c_pending = pending.clone();
-    let c_barrier = barrier.clone();
-    let c_zenoh = zenoh.clone();
-    let id = opt.name;
-    let interval = opt.interval;
-    task::spawn(async move {
-        let workspace = c_zenoh.workspace(None).await.unwrap();
-        let mut sub = workspace
-            .subscribe(&"/test/pong/".to_string().try_into().unwrap())
-            .await
-            .unwrap();
-
-        // Notify that the subscriber has been created
-        c_barrier.wait().await;
-
-        while let Some(change) = sub.next().await {
-            match change.value.unwrap() {
-                Value::Raw(_, mut payload) => {
-                    let mut count_bytes = [0u8; 8];
-                    payload.read_bytes(&mut count_bytes);
-                    let count = u64::from_le_bytes(count_bytes);
-
-                    let instant = c_pending.lock().await.remove(&count).unwrap();
-                    println!(
-                        "zenoh,ping,latency,{},{},{},{},{}",
-                        id,
-                        payload.len(),
-                        interval,
-                        count,
-                        instant.elapsed().as_micros()
-                    );
-                }
-                _ => panic!("Invalid value"),
-            }
-        }
-    });
-
-    // Wait for the subscriber to be declared
-    barrier.wait().await;
-
     let workspace = zenoh.workspace(None).await.unwrap();
+
     let mut count: u64 = 0;
     loop {
-        let count_bytes: [u8; 8] = count.to_le_bytes();
-        let mut payload = vec![0u8; opt.payload];
-        payload[0..8].copy_from_slice(&count_bytes);
+        let selector = "/test/query".to_string();
+        let now = Instant::now();
+        let mut data_stream = workspace.get(&selector.try_into().unwrap()).await.unwrap();
 
-        pending.lock().await.insert(count, Instant::now());
+        let mut payload: usize = 0;
+        while let Some(data) = data_stream.next().await {
+            let len = match data.value {
+                Value::Raw(_, payload) => payload.len(),
+                Value::Custom {
+                    encoding_descr: _,
+                    data: payload,
+                } => payload.len(),
+                Value::StringUtf8(payload) => payload.as_bytes().len(),
+                Value::Properties(ps) => {
+                    let mut len: usize = 0;
+                    for p in ps.iter() {
+                        let (a, b) = (p.0, p.1);
+                        len += a.as_bytes().len() + b.as_bytes().len();
+                    }
+                    len
+                }
+                Value::Json(payload) => payload.as_bytes().len(),
+                Value::Integer(_) => std::mem::size_of::<i64>(),
+                Value::Float(_) => std::mem::size_of::<f64>(),
+            };
+            payload += len;
+        }
 
-        workspace
-            .put(&"/test/ping".try_into().unwrap(), payload.into())
-            .await
-            .unwrap();
-
-        task::sleep(Duration::from_secs_f64(opt.interval)).await;
+        println!(
+            "zenoh,{},query,{},{},{},{}",
+            opt.scenario,
+            opt.name,
+            payload,
+            count,
+            now.elapsed().as_micros()
+        );
         count += 1;
     }
 }

@@ -103,7 +103,7 @@ impl SessionEventHandler for MyMH {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "s_sub_thr")]
+#[structopt(name = "s_eval")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
     locator: Locator,

@@ -111,7 +111,7 @@ impl SessionEventHandler for MyMH {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "s_sub_thr")]
+#[structopt(name = "s_query")]
 struct Opt {
     #[structopt(short = "e", long = "peer")]
     peer: Locator,

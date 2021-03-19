@@ -11,9 +11,8 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::future;
 use async_std::stream::StreamExt;
-use std::convert::TryInto;
+use std::convert::TryFrom;
 use structopt::StructOpt;
 use zenoh::*;
 
@@ -26,6 +25,8 @@ struct Opt {
     mode: String,
     #[structopt(short = "s", long = "scout")]
     scout: bool,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -52,23 +53,13 @@ async fn main() {
 
     let zenoh = Zenoh::new(config.into()).await.unwrap();
     let workspace = zenoh.workspace(None).await.unwrap();
-    let mut sub = workspace
-        .subscribe(&"/test/ping/".to_string().try_into().unwrap())
-        .await
-        .unwrap();
-
-    while let Some(change) = sub.next().await {
-        match change.value.unwrap() {
-            Value::Raw(_, payload) => {
-                workspace
-                    .put(&"/test/pong".try_into().unwrap(), payload.into())
-                    .await
-                    .unwrap();
-            }
-            _ => panic!("Invalid value"),
-        }
+    let path = &Path::try_from("/test/query").unwrap();
+    let mut get_stream = workspace.register_eval(&path.into()).await.unwrap();
+    while let Some(get_request) = get_stream.next().await {
+        let data = vec![0u8; opt.payload];
+        get_request.reply(path.clone(), data.into()).await;
     }
 
-    // Stop forever
-    future::pending::<()>().await;
+    get_stream.close().await.unwrap();
+    zenoh.close().await.unwrap();
 }
