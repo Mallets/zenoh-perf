@@ -15,7 +15,7 @@ use async_std::sync::Arc;
 use async_std::task;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
@@ -195,12 +195,19 @@ async fn main() {
     primitives.decl_subscriber(&rid, &sub_info, None).await;
 
     loop {
+        let now = Instant::now();
         task::sleep(Duration::from_secs(1)).await;
+        let elapsed = now.elapsed().as_micros() as f64;
+
         let c = count.swap(0, Ordering::Relaxed);
         if c > 0 {
+            let interval = 1_000_000.0 / elapsed;
             println!(
                 "router,{},throughput,{},{},{}",
-                opt.scenario, opt.name, opt.payload, c
+                opt.scenario,
+                opt.name,
+                opt.payload,
+                (c as f64 / interval).floor() as usize
             );
         }
     }

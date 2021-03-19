@@ -17,7 +17,7 @@ use async_std::task;
 use async_trait::async_trait;
 use rand::RngCore;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
 use zenoh::net::protocol::link::{Link, Locator};
@@ -62,10 +62,20 @@ impl SessionHandler for MySH {
             let payload = self.payload;
             task::spawn(async move {
                 loop {
+                    let now = Instant::now();
                     task::sleep(Duration::from_secs(1)).await;
+                    let elapsed = now.elapsed().as_micros() as f64;
+
                     let c = count.swap(0, Ordering::Relaxed);
                     if c > 0 {
-                        println!("session,{},throughput,{},{},{}", scenario, name, payload, c);
+                        let interval = 1_000_000.0 / elapsed;
+                        println!(
+                            "session,{},throughput,{},{},{}",
+                            scenario,
+                            name,
+                            payload,
+                            (c as f64 / interval).floor() as usize
+                        );
                     }
                 }
             });

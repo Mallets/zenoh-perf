@@ -14,7 +14,7 @@
 use async_std::sync::Arc;
 use async_std::task;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
 use zenoh::net::*;
@@ -82,12 +82,19 @@ async fn main() {
         .unwrap();
 
     loop {
+        let now = Instant::now();
         task::sleep(Duration::from_secs(1)).await;
+        let elapsed = now.elapsed().as_micros() as f64;
+
         let c = messages.swap(0, Ordering::Relaxed);
         if c > 0 {
+            let interval = 1_000_000.0 / elapsed;
             println!(
                 "zenoh-net,{},throughput,{},{},{}",
-                opt.scenario, opt.name, opt.payload, c
+                opt.scenario,
+                opt.name,
+                opt.payload,
+                (c as f64 / interval).floor() as usize
             );
         }
     }
