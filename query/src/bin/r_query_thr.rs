@@ -169,7 +169,6 @@ async fn main() {
         }
     });
 
-    let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;
     loop {
         let reskey = ResKey::RName("/test/query".to_string());
@@ -180,6 +179,7 @@ async fn main() {
         let routing_context = None;
 
         // Insert the pending query
+        let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
         tx_primitives
             .send_query(

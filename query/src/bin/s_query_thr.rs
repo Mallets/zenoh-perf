@@ -155,7 +155,6 @@ async fn main() {
         }
     });
 
-    let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;
     loop {
         // Create and send the message
@@ -178,6 +177,7 @@ async fn main() {
         );
 
         // Insert the pending query
+        let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
         session.handle_message(message).await.unwrap();
         // Wait for the reply to arrive

@@ -210,7 +210,6 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
     let session = manager.open_session(&opt.peer).await.unwrap();
 
     let sleep = Duration::from_secs_f64(opt.interval);
-    let barrier = Arc::new(Barrier::new(2));
     let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     loop {
@@ -241,6 +240,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         );
 
         // Insert the pending ping
+        let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
         let now = Instant::now();
         session.handle_message(message).await.unwrap();

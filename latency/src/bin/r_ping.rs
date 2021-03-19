@@ -298,7 +298,6 @@ async fn single(opt: Opt, config: ConfigProperties) {
     };
     tx_primitives.decl_subscriber(&rid, &sub_info, None).await;
 
-    let barrier = Arc::new(Barrier::new(2));
     let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     let reskey = ResKey::RName("/test/ping".to_string());
@@ -311,6 +310,7 @@ async fn single(opt: Opt, config: ConfigProperties) {
         let data: RBuf = data.into();
 
         // Insert the pending ping
+        let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
 
         let now = Instant::now();
