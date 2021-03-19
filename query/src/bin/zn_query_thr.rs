@@ -11,6 +11,7 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
+use async_std::stream::StreamExt;
 use async_std::sync::Arc;
 use async_std::task;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -55,8 +56,10 @@ async fn main() {
 
     let session = open(config.into()).await.unwrap();
 
+    let rtt = Arc::new(AtomicUsize::new(0));
     let counter = Arc::new(AtomicUsize::new(0));
 
+    let c_rtt = rtt.clone();
     let c_counter = counter.clone();
     task::spawn(async move {
         loop {
@@ -64,15 +67,17 @@ async fn main() {
             task::sleep(Duration::from_secs(1)).await;
             let elapsed = now.elapsed().as_micros() as f64;
 
+            let r = c_rtt.swap(0, Ordering::Relaxed);
             let c = c_counter.swap(0, Ordering::Relaxed);
             if c > 0 {
                 let interval = 1_000_000.0 / elapsed;
                 println!(
-                    "zenoh-net,{},query.throughput,{},{},{}",
+                    "zenoh-net,{},query.throughput,{},{},{},{}",
                     opt.scenario,
                     opt.name,
                     opt.payload,
-                    (c as f64 / interval).floor() as usize
+                    (c as f64 / interval).floor() as usize,
+                    (r as f64 / c as f64).floor() as usize
                 );
             }
         }
@@ -84,10 +89,14 @@ async fn main() {
         let target = QueryTarget::default();
         let consolidation = QueryConsolidation::default();
 
-        let _replies = session
+        let now = Instant::now();
+        let mut replies = session
             .query(&reskey, predicate, target, consolidation)
             .await
             .unwrap();
+        while let Some(_) = replies.next().await {}
+
+        rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
     }
 }

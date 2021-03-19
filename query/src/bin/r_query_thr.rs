@@ -136,6 +136,7 @@ async fn main() {
         config.insert(ZN_PEER_KEY, opt.peer.clone().unwrap());
     }
 
+    let rtt = Arc::new(AtomicUsize::new(0));
     let counter = Arc::new(AtomicUsize::new(0));
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
 
@@ -148,6 +149,7 @@ async fn main() {
         .new_primitives(OutSession::Primitives(rx_primitives))
         .await;
 
+    let c_rtt = rtt.clone();
     let c_counter = counter.clone();
     task::spawn(async move {
         loop {
@@ -155,15 +157,17 @@ async fn main() {
             task::sleep(Duration::from_secs(1)).await;
             let elapsed = now.elapsed().as_micros() as f64;
 
+            let r = c_rtt.swap(0, Ordering::Relaxed);
             let c = c_counter.swap(0, Ordering::Relaxed);
             if c > 0 {
                 let interval = 1_000_000.0 / elapsed;
                 println!(
-                    "router,{},query.throughput,{},{},{}",
+                    "router,{},query.throughput,{},{},{},{}",
                     opt.scenario,
                     opt.name,
                     opt.payload,
-                    (c as f64 / interval).floor() as usize
+                    (c as f64 / interval).floor() as usize,
+                    (r as f64 / c as f64).floor() as usize,
                 );
             }
         }
@@ -181,6 +185,7 @@ async fn main() {
         // Insert the pending query
         let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
+        let now = Instant::now();
         tx_primitives
             .send_query(
                 &reskey,
@@ -193,6 +198,7 @@ async fn main() {
             .await;
         // Wait for the reply to arrive
         barrier.wait().await;
+        rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
 
         count += 1;

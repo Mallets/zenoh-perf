@@ -121,6 +121,7 @@ async fn main() {
     rand::thread_rng().fill_bytes(&mut pid);
     let pid = PeerId::new(1, pid);
 
+    let rtt = Arc::new(AtomicUsize::new(0));
     let counter = Arc::new(AtomicUsize::new(0));
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
     let config = SessionManagerConfig {
@@ -134,6 +135,7 @@ async fn main() {
     // Connect to publisher
     let session = manager.open_session(&opt.peer).await.unwrap();
 
+    let c_rtt = rtt.clone();
     let c_counter = counter.clone();
     task::spawn(async move {
         loop {
@@ -141,15 +143,17 @@ async fn main() {
             task::sleep(Duration::from_secs(1)).await;
             let elapsed = now.elapsed().as_micros() as f64;
 
+            let r = c_rtt.swap(0, Ordering::Relaxed);
             let c = c_counter.swap(0, Ordering::Relaxed);
             if c > 0 {
                 let interval = 1_000_000.0 / elapsed;
                 println!(
-                    "session,{},query.throughput,{},{},{}",
+                    "session,{},query.throughput,{},{},{},{}",
                     opt.scenario,
                     opt.name,
                     opt.payload,
-                    (c as f64 / interval).floor() as usize
+                    (c as f64 / interval).floor() as usize,
+                    (r as f64 / c as f64).floor() as usize,
                 );
             }
         }
@@ -179,9 +183,11 @@ async fn main() {
         // Insert the pending query
         let barrier = Arc::new(Barrier::new(2));
         pending.lock().await.insert(count, barrier.clone());
+        let now = Instant::now();
         session.handle_message(message).await.unwrap();
         // Wait for the reply to arrive
         barrier.wait().await;
+        rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
 
         count += 1;
