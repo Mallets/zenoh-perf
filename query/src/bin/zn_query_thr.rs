@@ -11,8 +11,10 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
-use std::time::Instant;
+use async_std::sync::Arc;
+use async_std::task;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::ResKey;
 use zenoh::net::*;
@@ -29,6 +31,8 @@ struct Opt {
     name: String,
     #[structopt(short = "s", long = "scenario")]
     scenario: String,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -46,37 +50,44 @@ async fn main() {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap());
+        config.insert("peer".to_string(), opt.peer.clone().unwrap());
     }
 
     let session = open(config.into()).await.unwrap();
 
-    let mut count: u64 = 0;
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let c_counter = counter.clone();
+    task::spawn(async move {
+        loop {
+            let now = Instant::now();
+            task::sleep(Duration::from_secs(1)).await;
+            let elapsed = now.elapsed().as_micros() as f64;
+
+            let c = c_counter.swap(0, Ordering::Relaxed);
+            if c > 0 {
+                let interval = 1_000_000.0 / elapsed;
+                println!(
+                    "zenoh-net,{},query.throughput,{},{},{}",
+                    opt.scenario,
+                    opt.name,
+                    opt.payload,
+                    (c as f64 / interval).floor() as usize
+                );
+            }
+        }
+    });
+
     loop {
         let reskey = ResKey::RName("/test/query".to_string());
         let predicate = "";
         let target = QueryTarget::default();
         let consolidation = QueryConsolidation::default();
 
-        let now = Instant::now();
-        let mut replies = session
+        let _replies = session
             .query(&reskey, predicate, target, consolidation)
             .await
             .unwrap();
-
-        let mut payload: usize = 0;
-        while let Some(reply) = replies.next().await {
-            payload += reply.data.payload.len();
-        }
-        println!(
-            "zenoh-net,{},query.latency,{},{},{},{}",
-            opt.scenario,
-            opt.name,
-            payload,
-            count,
-            now.elapsed().as_micros()
-        );
-
-        count += 1;
+        counter.fetch_add(1, Ordering::Relaxed);
     }
 }

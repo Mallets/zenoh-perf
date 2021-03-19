@@ -11,7 +11,7 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use futures::prelude::*;
+use async_std::stream::StreamExt;
 use structopt::StructOpt;
 use zenoh::net::queryable::EVAL;
 use zenoh::net::*;

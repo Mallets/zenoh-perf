@@ -82,7 +82,7 @@ async fn main() {
         }
 
         println!(
-            "zenoh,{},query,{},{},{},{}",
+            "zenoh,{},query.latency,{},{},{},{}",
             opt.scenario,
             opt.name,
             payload,

@@ -12,9 +12,11 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::sync::{Arc, Barrier, Mutex};
+use async_std::task;
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
@@ -28,21 +30,15 @@ use zenoh_util::properties::config::{
     ConfigProperties, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
-type Pending = Arc<Mutex<HashMap<u64, (Instant, Arc<Barrier>)>>>;
+type Pending = Arc<Mutex<HashMap<u64, Arc<Barrier>>>>;
 
 struct QueryPrimitives {
-    scenario: String,
-    name: String,
     pending: Pending,
 }
 
 impl QueryPrimitives {
-    pub fn new(scenario: String, name: String, pending: Pending) -> QueryPrimitives {
-        QueryPrimitives {
-            scenario,
-            name,
-            pending,
-        }
+    pub fn new(pending: Pending) -> QueryPrimitives {
+        QueryPrimitives { pending }
     }
 }
 
@@ -90,19 +86,10 @@ impl Primitives for QueryPrimitives {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        payload: RBuf,
+        _payload: RBuf,
     ) {
-        let tuple = self.pending.lock().await.remove(&qid).unwrap();
-        let (instant, barrier) = (tuple.0, tuple.1);
+        let barrier = self.pending.lock().await.remove(&qid).unwrap();
         barrier.wait().await;
-        println!(
-            "router,{},query.latency,{},{},{},{}",
-            self.scenario,
-            self.name,
-            payload.len(),
-            qid,
-            instant.elapsed().as_micros()
-        );
     }
     async fn send_reply_final(&self, _qid: ZInt) {}
     async fn send_pull(
@@ -127,6 +114,8 @@ struct Opt {
     name: String,
     #[structopt(short = "s", long = "scenario")]
     scenario: String,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -144,23 +133,41 @@ async fn main() {
         config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
     } else {
         config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        config.insert(ZN_PEER_KEY, opt.peer.unwrap());
+        config.insert(ZN_PEER_KEY, opt.peer.clone().unwrap());
     }
 
+    let counter = Arc::new(AtomicUsize::new(0));
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let rx_primitives = Arc::new(QueryPrimitives::new(
-        opt.scenario,
-        opt.name,
-        pending.clone(),
-    ));
+    let rx_primitives = Arc::new(QueryPrimitives::new(pending.clone()));
     let tx_primitives = runtime
         .read()
         .await
         .router
         .new_primitives(OutSession::Primitives(rx_primitives))
         .await;
+
+    let c_counter = counter.clone();
+    task::spawn(async move {
+        loop {
+            let now = Instant::now();
+            task::sleep(Duration::from_secs(1)).await;
+            let elapsed = now.elapsed().as_micros() as f64;
+
+            let c = c_counter.swap(0, Ordering::Relaxed);
+            if c > 0 {
+                let interval = 1_000_000.0 / elapsed;
+                println!(
+                    "router,{},query.throughput,{},{},{}",
+                    opt.scenario,
+                    opt.name,
+                    opt.payload,
+                    (c as f64 / interval).floor() as usize
+                );
+            }
+        }
+    });
 
     let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;
@@ -173,10 +180,7 @@ async fn main() {
         let routing_context = None;
 
         // Insert the pending query
-        pending
-            .lock()
-            .await
-            .insert(count, (Instant::now(), barrier.clone()));
+        pending.lock().await.insert(count, barrier.clone());
         tx_primitives
             .send_query(
                 &reskey,
@@ -189,6 +193,7 @@ async fn main() {
             .await;
         // Wait for the reply to arrive
         barrier.wait().await;
+        counter.fetch_add(1, Ordering::Relaxed);
 
         count += 1;
     }

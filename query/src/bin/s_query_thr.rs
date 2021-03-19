@@ -12,10 +12,12 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::sync::{Arc, Barrier, Mutex};
+use async_std::task;
 use async_trait::async_trait;
 use rand::RngCore;
 use std::collections::HashMap;
-use std::time::Instant;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId, QueryConsolidation, QueryTarget, ResKey};
 use zenoh::net::protocol::link::{Link, Locator};
@@ -26,22 +28,16 @@ use zenoh::net::protocol::session::{
 };
 use zenoh_util::core::ZResult;
 
-type Pending = Arc<Mutex<HashMap<u64, (Instant, Arc<Barrier>)>>>;
+type Pending = Arc<Mutex<HashMap<u64, Arc<Barrier>>>>;
 
 // Session Handler for the blocking peer
 struct MySH {
-    scenario: String,
-    name: String,
     pending: Pending,
 }
 
 impl MySH {
-    fn new(scenario: String, name: String, pending: Pending) -> Self {
-        Self {
-            scenario,
-            name,
-            pending,
-        }
+    fn new(pending: Pending) -> Self {
+        Self { pending }
     }
 }
 
@@ -51,28 +47,18 @@ impl SessionHandler for MySH {
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
-        Ok(Arc::new(MyMH::new(
-            self.scenario.clone(),
-            self.name.clone(),
-            self.pending.clone(),
-        )))
+        Ok(Arc::new(MyMH::new(self.pending.clone())))
     }
 }
 
 // Message Handler for the peer
 struct MyMH {
-    scenario: String,
-    name: String,
     pending: Pending,
 }
 
 impl MyMH {
-    fn new(scenario: String, name: String, pending: Pending) -> Self {
-        Self {
-            scenario,
-            name,
-            pending,
-        }
+    fn new(pending: Pending) -> Self {
+        Self { pending }
     }
 }
 
@@ -80,24 +66,15 @@ impl MyMH {
 impl SessionEventHandler for MyMH {
     async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
-            ZenohBody::Data(Data { payload, .. }) => {
+            ZenohBody::Data(Data { .. }) => {
                 let reply_context = message.reply_context.unwrap();
-                let tuple = self
+                let barrier = self
                     .pending
                     .lock()
                     .await
                     .remove(&reply_context.qid)
                     .unwrap();
-                let (instant, barrier) = (tuple.0, tuple.1);
                 barrier.wait().await;
-                println!(
-                    "session,{},query.latency,{},{},{},{}",
-                    self.scenario,
-                    self.name,
-                    payload.len(),
-                    reply_context.qid,
-                    instant.elapsed().as_micros()
-                );
             }
             _ => panic!("Invalid message"),
         }
@@ -121,6 +98,8 @@ struct Opt {
     name: String,
     #[structopt(short = "s", long = "scenario")]
     scenario: String,
+    #[structopt(short = "p", long = "payload")]
+    payload: usize,
 }
 
 #[async_std::main]
@@ -142,21 +121,40 @@ async fn main() {
     rand::thread_rng().fill_bytes(&mut pid);
     let pid = PeerId::new(1, pid);
 
+    let counter = Arc::new(AtomicUsize::new(0));
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
     let config = SessionManagerConfig {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(
-            opt.scenario.clone(),
-            opt.name.clone(),
-            pending.clone(),
-        ))),
+        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(pending.clone()))),
     };
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
     let session = manager.open_session(&opt.peer).await.unwrap();
+
+    let c_counter = counter.clone();
+    task::spawn(async move {
+        loop {
+            let now = Instant::now();
+            task::sleep(Duration::from_secs(1)).await;
+            let elapsed = now.elapsed().as_micros() as f64;
+
+            let c = c_counter.swap(0, Ordering::Relaxed);
+            if c > 0 {
+                let interval = 1_000_000.0 / elapsed;
+                println!(
+                    "session,{},query.throughput,{},{},{}",
+                    opt.scenario,
+                    opt.name,
+                    opt.payload,
+                    (c as f64 / interval).floor() as usize
+                );
+            }
+        }
+    });
+
     let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;
     loop {
@@ -180,13 +178,11 @@ async fn main() {
         );
 
         // Insert the pending query
-        pending
-            .lock()
-            .await
-            .insert(count, (Instant::now(), barrier.clone()));
+        pending.lock().await.insert(count, barrier.clone());
         session.handle_message(message).await.unwrap();
         // Wait for the reply to arrive
         barrier.wait().await;
+        counter.fetch_add(1, Ordering::Relaxed);
 
         count += 1;
     }
