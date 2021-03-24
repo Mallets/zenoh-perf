@@ -50,7 +50,7 @@ void *counter_thread(void *arg)
         __atomic_exchange(&counter, &zero, &n, __ATOMIC_RELAXED);
         if (n > 0)
         {
-            printf("zeromq,%s,throughput,%s,%d,%llu\n", scenario, name, payload, n);
+            printf("zeromq,%s,throughput,%s,%d,%lu\n", scenario, name, payload, n);
             fflush(stdout);
         }
     }
@@ -58,8 +58,8 @@ void *counter_thread(void *arg)
 
 int main(int argc, char *argv[])
 {
-    char *payload_value = NULL;
-    const char *locator;
+    const char *payload_value = NULL;
+    const char *locator = NULL;
     void *ctx;
     void *s;
     int rc, c;
