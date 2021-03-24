@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 
     if (locator == NULL || name == NULL || scenario == NULL || payload_value == NULL)
     {
-        printf("Usage: zmq_pub_thr -l tcp://127.0.0.1:4505 -p 8 -n name -s scenario\n");
+        printf("Usage:\n\t./zmq_sub_thr -l tcp://127.0.0.1:4505 -p 8 -n name -s scenario\n");
         exit(EXIT_FAILURE);
     }
     payload = (size_t)atoi(payload_value);

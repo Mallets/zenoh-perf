@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
     if (peer == NULL || payload_value == NULL)
     {
-        printf("Usage: zmq_pub_thr -e tcp://127.0.0.1:4505 -p 8\n");
+        printf("Usage:\n\t./zmq_pub_thr -e tcp://127.0.0.1:4505 -p 8\n");
         exit(EXIT_FAILURE);
     }
     payload = atoi(payload_value);
