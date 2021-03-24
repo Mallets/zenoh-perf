@@ -182,6 +182,7 @@ int main(int argc, char* argv[])
 			__atomic_exchange(&counter, &zero, &n, __ATOMIC_RELAXED);
 			if (n > 0) {
 				printf("mqtt,%s,throughput,%s,%ld,%ld\n", scenario, name, payload,n);
+				fflush(stdout);
 			}
 
 	}
