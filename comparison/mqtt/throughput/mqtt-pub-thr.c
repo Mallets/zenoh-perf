@@ -24,7 +24,6 @@
 #define CLIENTID    "mqtt_pub_thr"
 #define TOPIC       "/test/thr"
 #define QOS         1
-#define TIMEOUT     10000L
 
 volatile int finished = 0;
 volatile int ready = 0;
@@ -64,11 +63,12 @@ void *send_msgs(void *args) {
 		pubmsg.payloadlen = (int) thr_args->payload;
 		pubmsg.qos = QOS;
 		pubmsg.retained = 0;
-		if ((rc = MQTTAsync_sendMessage(thr_args->client, TOPIC, &pubmsg, NULL)) != MQTTASYNC_SUCCESS)
-		{
-			printf("Failed to send message, return code %d\n", rc);
-			exit(EXIT_FAILURE);
-		}
+		MQTTAsync_sendMessage(thr_args->client, TOPIC, &pubmsg, NULL);
+		// if ((rc = MQTTAsync_sendMessage(thr_args->client, TOPIC, &pubmsg, NULL)) != MQTTASYNC_SUCCESS)
+		// {
+		// 	printf("Failed to send message, return code %d\n", rc);
+		// 	//exit(EXIT_FAILURE);
+		// }
 		__atomic_fetch_add(&counter, 1, __ATOMIC_RELAXED);
 	}
 }
@@ -169,11 +169,12 @@ int main(int argc, char* argv[])
 			pubmsg.payloadlen = (int) payload;
 			pubmsg.qos = QOS;
 			pubmsg.retained = 0;
-			if ((rc = MQTTAsync_sendMessage(client, TOPIC, &pubmsg, NULL)) != MQTTASYNC_SUCCESS)
-			{
-				printf("Failed to send message, return code %d\n", rc);
-				exit(EXIT_FAILURE);
-			}
+			MQTTAsync_sendMessage(client, TOPIC, &pubmsg, NULL);
+			// if ((rc = MQTTAsync_sendMessage(client, TOPIC, &pubmsg, NULL)) != MQTTASYNC_SUCCESS)
+			// {
+			// 	printf("Failed to send message, return code %d\n", rc);
+			// 	exit(EXIT_FAILURE);
+			// }
 		}
 	}
 

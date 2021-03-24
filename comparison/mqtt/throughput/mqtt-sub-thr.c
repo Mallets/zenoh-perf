@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/time.h>
 
 
 #define CLIENTID    "mqtt_sub_thr"
@@ -75,6 +76,7 @@ int main(int argc, char* argv[])
 	MQTTAsync client;
 	MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer5;
 	MQTTAsync_createOptions create_opts = MQTTAsync_createOptions_initializer;
+	//struct timespec start, end;
 	int rc, c;
 	size_t payload = 8;
 	char* broker = NULL;
@@ -170,11 +172,18 @@ int main(int argc, char* argv[])
 	while (!subscribed) ;
 
 	while (1) {
+			//clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 			sleep(1);
+			//clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+			//u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
+			//u_int64_t interveal = 1000000 / elapsed;
 			u_int64_t n;
 			u_int64_t zero = 0;
 			__atomic_exchange(&counter, &zero, &n, __ATOMIC_RELAXED);
-			printf("mqtt,%s,throughput,%s,%ld,%ld\n", scenario, name, payload,n);
+			if (n > 0) {
+				printf("mqtt,%s,throughput,%s,%ld,%ld\n", scenario, name, payload,n);
+			}
+
 	}
 
 	exit(EXIT_SUCCESS);
