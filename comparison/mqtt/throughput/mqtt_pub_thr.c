@@ -55,7 +55,7 @@ void onConnect(void* context, MQTTAsync_successData5* response)
 void *send_msgs(void *args) {
 
 	struct send_struct *thr_args = (struct send_struct *)args;
-	int rc;
+	//int rc;
 
 	while (1) {
 		MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
