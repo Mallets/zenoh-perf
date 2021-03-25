@@ -18,6 +18,8 @@ def main(datafile):
     total_mqtt_size = 0
     total_mqtt_data_size = 0
     total_payload = 0
+    data_pkt = 0
+
 
     for p in data:
         total_frame_size +=  int(p['_source']['layers']['frame.len'][0])
@@ -30,11 +32,14 @@ def main(datafile):
             if int(p['_source']['layers']['mqtt.msgtype'][0]) == 3: #MQTT Publish Message
                 total_payload += int(len(p['_source']['layers']['mqtt.msg'][0])/2)
                 total_mqtt_data_size += int(p['_source']['layers']['mqtt.len'][0])
+                data_pkt += 1
             elif int(p['_source']['layers']['mqtt.msgtype'][0]) == 4: #MQTT Puback Message 
                 total_mqtt_data_size += int(p['_source']['layers']['mqtt.len'][0])
 
-    print('protocol,total_wire,total_ip,total_tcp,total_mqtt,data_mqtt,payload')
-    print(f"mqtt,{total_frame_size},{total_ip_size},{total_tcp_size},{total_mqtt_size},{total_mqtt_data_size},{total_payload}")
+    payload = int(total_payload/data_pkt)
+
+    print('protocol,total_wire,total_ip,total_tcp,total_mqtt,data_mqtt,total_payload,payload')
+    print(f"mqtt,{total_frame_size},{total_ip_size},{total_tcp_size},{total_mqtt_size},{total_mqtt_data_size},{total_payload},{payload}")
 
 
 if __name__=='__main__':
