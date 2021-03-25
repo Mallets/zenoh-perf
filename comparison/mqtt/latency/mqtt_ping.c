@@ -35,8 +35,17 @@ u_int64_t counter = 0;
 const char* DEFAULT_BROKER = "tcp://127.0.0.1:1883";
 const char* DEFAULT_PONG_TOPIC = "/test/pong";
 
+// Declaration of thread condition variable
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+  
 
+struct ping_data {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+	u_int64_t seq_num;
+};
 
+struct ping_data ping_info;
 
 
 void onConnectFailure(void* context, MQTTAsync_failureData5* response)
@@ -66,7 +75,13 @@ void onSubscribeFailure(void* context, MQTTAsync_failureData5* response)
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
 {
 	if (strncmp(topicName, DEFAULT_PONG_TOPIC, topicLen) == 0 ) {
-		received = 1;
+		pthread_mutex_lock(&ping_info.lock);
+
+		memcpy((void *)&ping_info.seq_num, message->payload, sizeof(u_int64_t));
+
+		pthread_cond_signal(&ping_info.cond);
+		pthread_mutex_unlock(&ping_info.lock);
+		
 	}
 	MQTTAsync_freeMessage(&message);
 	MQTTAsync_free(topicName);
@@ -81,8 +96,7 @@ int main(int argc, char* argv[])
 	MQTTAsync_createOptions create_opts = MQTTAsync_createOptions_initializer;
 	int rc, c;
 	float interveal = 1; //s
-	size_t payload = 8;
-	//size_t seq_num = 0;
+	size_t payload = 64;
 	char* broker = NULL;
 	char* payload_value = NULL;
 	void* data = NULL;
@@ -90,6 +104,7 @@ int main(int argc, char* argv[])
 	char* scenario = NULL;
 	char* interveal_value = NULL;
 	struct timespec start, end;
+	u_int64_t seq_num = 0; 
 
 
 
@@ -188,11 +203,14 @@ int main(int argc, char* argv[])
 
 	while (!subscribed) ;
 
+	pthread_mutex_init(&ping_info.lock, NULL);
+	pthread_cond_init(&ping_info.cond, NULL);
+	ping_info.seq_num = 0;
 
 	while (1) {
 		usleep((useconds_t)interveal * 1000000);
 		MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
-		//memcpy(data, seq_num);
+		memcpy(data, (void *) &seq_num, sizeof(u_int64_t));
 		pubmsg.payload = data;
 		pubmsg.payloadlen = (int) payload;
 		pubmsg.qos = QOS;
@@ -201,15 +219,19 @@ int main(int argc, char* argv[])
 		{
 				clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 				// The message was sent, we should wait for the reply
-				while (!received) usleep((useconds_t)1);
+				pthread_mutex_lock(&ping_info.lock);
+				pthread_cond_wait(&ping_info.cond, &ping_info.lock);
+				pthread_mutex_unlock(&ping_info.lock);
+				//while (!received);// usleep((useconds_t)1);
 				clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 				received = 0;
 				u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
 
-				printf("mqtt,%s,latency,%s,%ld,%ld\n", scenario, name, payload,elapsed);
+				printf("mqtt,%s,latency,%s,%ld,%lu,%ld\n", scenario, name, payload, ping_info.seq_num,elapsed);
 				fflush(stdout);
-
+				seq_num += 1;
 		}
+		
 	}
 
 
