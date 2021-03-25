@@ -220,9 +220,9 @@ int main(int argc, char* argv[])
 				// The message was sent, we should wait for the reply
 				pthread_mutex_lock(&ping_info.lock);
 				pthread_cond_wait(&ping_info.cond, &ping_info.lock);
+				clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 				pthread_mutex_unlock(&ping_info.lock);
 
-				clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 				received = 0;
 				u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
 
