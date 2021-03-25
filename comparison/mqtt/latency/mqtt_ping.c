@@ -35,9 +35,7 @@ u_int64_t counter = 0;
 const char* DEFAULT_BROKER = "tcp://127.0.0.1:1883";
 const char* DEFAULT_PONG_TOPIC = "/test/pong";
 
-// Declaration of thread condition variable
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-  
+
 
 struct ping_data {
 	pthread_mutex_t lock;
@@ -218,11 +216,12 @@ int main(int argc, char* argv[])
 		if ((rc = MQTTAsync_sendMessage(client, PING_TOPIC, &pubmsg, NULL)) == MQTTASYNC_SUCCESS)
 		{
 				clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
 				// The message was sent, we should wait for the reply
 				pthread_mutex_lock(&ping_info.lock);
 				pthread_cond_wait(&ping_info.cond, &ping_info.lock);
 				pthread_mutex_unlock(&ping_info.lock);
-				//while (!received);// usleep((useconds_t)1);
+
 				clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 				received = 0;
 				u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;

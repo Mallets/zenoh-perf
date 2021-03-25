@@ -25,7 +25,6 @@
 #define CLIENTID    "mqtt_sub_thr"
 #define TOPIC       "/test/thr"
 #define QOS         1
-#define TIMEOUT     10000L
 
 volatile int finished = 0;
 volatile int ready = 0;
