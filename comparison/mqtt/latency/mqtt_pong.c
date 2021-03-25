@@ -22,8 +22,9 @@
 #include <sys/time.h>
 
 
-#define CLIENTID    "mqtt_sub_thr"
-#define TOPIC       "/test/thr"
+#define CLIENTID    "mqtt_pong"
+#define PING_TOPIC       "/test/ping"
+#define PONG_TOPIC       "/test/pong"
 #define QOS         1
 
 volatile int finished = 0;
@@ -31,13 +32,22 @@ volatile int ready = 0;
 volatile int subscribed = 0;
 u_int64_t counter = 0;
 const char* DEFAULT_BROKER = "tcp://127.0.0.1:1883";
-const char* DEFAULT_TOPIC = "/test/thr";
+const char* DEFAULT_PING_TOPIC = "/test/ping";
 
 
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
 {
-	if (strncmp(topicName, DEFAULT_TOPIC, topicLen) == 0 ) {
-		__atomic_fetch_add(&counter, 1, __ATOMIC_RELAXED);
+	MQTTAsync client = (MQTTAsync)context;
+	int rc = -1;
+	if (strncmp(topicName, DEFAULT_PING_TOPIC, topicLen) == 0 ) {
+		//ping message arrived, sending back
+		while (rc != MQTTASYNC_SUCCESS) {
+			if ((rc = MQTTAsync_sendMessage(client, PONG_TOPIC, message, NULL)) != MQTTASYNC_SUCCESS) {
+				printf("Error sending message: %d\n", rc);
+				fflush(stdout);
+			}
+		}
+
 	}
 	MQTTAsync_freeMessage(&message);
 	MQTTAsync_free(topicName);
@@ -77,41 +87,17 @@ int main(int argc, char* argv[])
 	MQTTAsync_createOptions create_opts = MQTTAsync_createOptions_initializer;
 	//struct timespec start, end;
 	int rc, c;
-	size_t payload = 8;
 	char* broker = NULL;
-	char* payload_value = NULL;
-	char* name = NULL;
-	char* scenario = NULL;
-
 
 	 // Parsing arguments
-	while((c = getopt(argc, argv, ":b:p:n:s:")) != -1 ){
+	while((c = getopt(argc, argv, ":b:")) != -1 ){
 		switch (c) {
-			case 'n':
-				name = optarg;
-				break;
-			case 's':
-				scenario = optarg;
-				break;
-			case 'p':
-				payload_value = optarg;
-				break;
 			case 'b':
 				broker = optarg;
 				break;
 			default:
 				break;
 		}
-	}
-
-	if (name == NULL) {
-		printf("Missing -n parameter, exiting!");
-		exit(EXIT_FAILURE);
-	}
-
-	if (scenario == NULL) {
-		printf("Missing -s parameter, exiting!");
-		exit(EXIT_FAILURE);
 	}
 
 	// Setting defaults
@@ -122,9 +108,7 @@ int main(int argc, char* argv[])
 		memcpy(broker, DEFAULT_BROKER, strlen(DEFAULT_BROKER));
 	}
 
-	if (payload_value != NULL) {
-		payload = (size_t) atoi(payload_value);
-	}
+
 
 	create_opts.MQTTVersion = MQTTVERSION_5;
 	if ((rc = MQTTAsync_createWithOptions(&client, broker, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL, &create_opts)) != MQTTASYNC_SUCCESS)
@@ -155,7 +139,7 @@ int main(int argc, char* argv[])
 	opts.onSuccess5 = onSubscribe;
 	opts.onFailure5 = onSubscribeFailure;
 	opts.context = client;
-	if ((rc = MQTTAsync_subscribe(client, TOPIC, QOS, &opts)) != MQTTASYNC_SUCCESS)
+	if ((rc = MQTTAsync_subscribe(client, PING_TOPIC, QOS, &opts)) != MQTTASYNC_SUCCESS)
 	{
 		printf("Failed to start subscribe, return code %d\n", rc);
 		finished = 1;
@@ -171,19 +155,7 @@ int main(int argc, char* argv[])
 	while (!subscribed) ;
 
 	while (1) {
-			//clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 			sleep(1);
-			//clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-			//u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
-			//u_int64_t interveal = 1000000 / elapsed;
-			u_int64_t n;
-			u_int64_t zero = 0;
-			__atomic_exchange(&counter, &zero, &n, __ATOMIC_RELAXED);
-			if (n > 0) {
-				printf("mqtt,%s,throughput,%s,%ld,%ld\n", scenario, name, payload,n);
-				fflush(stdout);
-			}
-
 	}
 
 	exit(EXIT_SUCCESS);
