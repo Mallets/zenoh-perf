@@ -1,3 +1,5 @@
+# paho-mqtt-c version 1.3.8
+
 all:
 	mkdir -p ./target
 	gcc -O2 -Wall throughput/mqtt_pub_thr.c -lpaho-mqtt3a -pthread -o target/mqtt_pub_thr
