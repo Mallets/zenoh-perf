@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 	int rc, c;
 	float interveal = 1; //s
 	size_t payload = 8;
-	size_t seq_num = 0;
+	//size_t seq_num = 0;
 	char* broker = NULL;
 	char* payload_value = NULL;
 	void* data = NULL;
@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
 	while (1) {
 		usleep((useconds_t)interveal * 1000000);
 		MQTTAsync_message pubmsg = MQTTAsync_message_initializer;
-		memcpy(data, seq_num);
+		//memcpy(data, seq_num);
 		pubmsg.payload = data;
 		pubmsg.payloadlen = (int) payload;
 		pubmsg.qos = QOS;
