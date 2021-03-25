@@ -140,6 +140,50 @@ int main(int argc, char *argv[])
             printf("error in zmq_recvmsg: %s\n", zmq_strerror(errno));
             return -1;
         }
+        char *topic = (char *)zmq_msg_data(&msg);
+        if (strncmp(topic, "/test/thr", 10) != 0)
+        {
+            printf("error in topic: %s\n", topic);
+            return -1;
+        }
+
+        u_int64_t more;
+        size_t more_size = sizeof(more);
+        rc = zmq_getsockopt(s, ZMQ_RCVMORE, &more, &more_size);
+        if (rc < 0)
+        {
+            printf("error in zmq_getsockopt: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+        if (more == 0)
+        {
+            printf("error in zmq_rcvmore\n");
+            return -1;
+        }
+
+        rc = zmq_recvmsg(s, &msg, 0);
+        if (rc < 0)
+        {
+            printf("error in zmq_recvmsg: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+        if (zmq_msg_size(&msg) != payload)
+        {
+            printf("message of incorrect size received\n");
+            return -1;
+        }
+        rc = zmq_getsockopt(s, ZMQ_RCVMORE, &more, &more_size);
+        if (rc < 0)
+        {
+            printf("error in zmq_getsockopt: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+        if (more == 1)
+        {
+            printf("error in zmq_rcvmore\n");
+            return -1;
+        }
+
         __atomic_fetch_add(&counter, 1, __ATOMIC_RELAXED);
     }
 

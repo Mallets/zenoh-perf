@@ -30,6 +30,7 @@
 #include <zmq.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -41,7 +42,8 @@ int main(int argc, char *argv[])
     int rc = 0;
     int c = 0;
     int payload = 0;
-    zmq_msg_t msg;
+    zmq_msg_t topic_msg;
+    zmq_msg_t data_msg;
 
     // Parsing arguments
     while ((c = getopt(argc, argv, ":e:p:")) != -1)
@@ -87,21 +89,53 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    char topic_str[10] = "/test/thr";
     while (1)
     {
-        rc = zmq_msg_init_size(&msg, payload);
+        // TOPIC
+        rc = zmq_msg_init_size(&topic_msg, 10);
         if (rc != 0)
         {
             printf("error in zmq_msg_init_size: %s\n", zmq_strerror(errno));
             return -1;
         }
-        rc = zmq_sendmsg(s, &msg, 0);
+
+        void *t = zmq_msg_data(&topic_msg);
+        if (t == NULL)
+        {
+            printf("error in zmq_msg_data: NULL data\n");
+            return -1;
+        }
+        memcpy(zmq_msg_data(&topic_msg), &topic_str, 10);
+
+        rc = zmq_sendmsg(s, &topic_msg, ZMQ_SNDMORE);
         if (rc < 0)
         {
             printf("error in zmq_sendmsg: %s\n", zmq_strerror(errno));
             return -1;
         }
-        rc = zmq_msg_close(&msg);
+
+        rc = zmq_msg_close(&topic_msg);
+        if (rc != 0)
+        {
+            printf("error in zmq_msg_close: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+
+        // DATA
+        rc = zmq_msg_init_size(&data_msg, payload);
+        if (rc != 0)
+        {
+            printf("error in zmq_msg_init_size: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+        rc = zmq_sendmsg(s, &data_msg, 0);
+        if (rc < 0)
+        {
+            printf("error in zmq_sendmsg: %s\n", zmq_strerror(errno));
+            return -1;
+        }
+        rc = zmq_msg_close(&data_msg);
         if (rc != 0)
         {
             printf("error in zmq_msg_close: %s\n", zmq_strerror(errno));
