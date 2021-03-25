@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
 
     while (1)
     {
+        // TOPIC
         rc = zmq_recvmsg(s, &msg, 0);
         if (rc < 0)
         {
@@ -161,6 +162,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
+        // DATA
         rc = zmq_recvmsg(s, &msg, 0);
         if (rc < 0)
         {
