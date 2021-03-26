@@ -92,7 +92,7 @@ async fn main() {
     // Send reliable messages
     let reliability = Reliability::Reliable;
     let congestion_control = CongestionControl::Block;
-    let key = ResKey::RName("test".to_string());
+    let key = ResKey::RId(1);
     let info = None;
     let payload = RBuf::from(vec![0u8; opt.payload]);
     let reply_context = None;

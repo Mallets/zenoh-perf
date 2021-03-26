@@ -87,7 +87,7 @@ async fn main() {
         let selector = "/test/query".to_string();
         let now = Instant::now();
         let mut data_stream = workspace.get(&selector.try_into().unwrap()).await.unwrap();
-        while let Some(_) = data_stream.next().await {}
+        while data_stream.next().await.is_some() {}
 
         rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);

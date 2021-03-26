@@ -94,7 +94,7 @@ async fn main() {
             .query(&reskey, predicate, target, consolidation)
             .await
             .unwrap();
-        while let Some(_) = replies.next().await {}
+        while replies.next().await.is_some() {}
 
         rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
