@@ -147,7 +147,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
         let to_read = u16::from_le_bytes(length_bytes) as usize;
         // Read the message
-        let res = stream.read_exact(&mut buffer).await;
+        let res = stream.read_exact(&mut buffer[0..to_read]).await;
         match res {
             Ok(_) => {
                 let _ = counter.fetch_add(to_read as usize, Ordering::Relaxed);
