@@ -39,9 +39,12 @@ log = "0.4.14"
 rand = "0.8.3"
 slab = "0.4.2"
 structopt = "0.3.21"
+hex = "0.4"
 zenoh =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
 zenoh-util =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
-
+serde_derive = "1.0.55"
+serde = { version = "1.0.55", features = ["derive"] }
+serde_json = { version = "1.0.55"}
 
 
 [[bin]]
