@@ -99,17 +99,6 @@ async fn main() {
     let routing_context = None;
     let attachment = None;
 
-    let message = ZenohMessage::make_data(
-        key,
-        payload,
-        reliability,
-        congestion_control,
-        info,
-        routing_context,
-        reply_context,
-        attachment,
-    );
-
     if opt.print {
         let count = Arc::new(AtomicUsize::new(0));
         let c_count = count.clone();
@@ -124,7 +113,17 @@ async fn main() {
         });
 
         loop {
-            let res = session.handle_message(message.clone()).await;
+            let message = ZenohMessage::make_data(
+                key.clone(),
+                payload.clone(),
+                reliability,
+                congestion_control,
+                info.clone(),
+                routing_context,
+                reply_context.clone(),
+                attachment.clone(),
+            );
+            let res = session.handle_message(message).await;
             if res.is_err() {
                 break;
             }
@@ -132,7 +131,17 @@ async fn main() {
         }
     } else {
         loop {
-            let res = session.handle_message(message.clone()).await;
+            let message = ZenohMessage::make_data(
+                key.clone(),
+                payload.clone(),
+                reliability,
+                congestion_control,
+                info.clone(),
+                routing_context,
+                reply_context.clone(),
+                attachment.clone(),
+            );
+            let res = session.handle_message(message).await;
             if res.is_err() {
                 break;
             }
