@@ -127,7 +127,7 @@ async fn main() {
         }
     }
 
-    println!("Total Size of Zenoh Data {} bytes", zenoh_data.len());
+    println!("Total Size of Zenoh messages: {} bytes", zenoh_data.len());
 
     let session_messages = read_session_messages(zenoh_data.as_slice());
 

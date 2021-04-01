@@ -35,6 +35,8 @@ struct Opt {
     print: bool,
     #[structopt(short = "t", long = "total", default_value = "1048576")] //1MB in bytes
     total: u64,
+    #[structopt(short = "i", long = "interval", default_value = "0")]
+    interval: f64,
 }
 
 #[async_std::main]
@@ -61,7 +63,7 @@ async fn main() {
     let session = open(config.into()).await.unwrap();
 
     let reskey = RId(session
-        .declare_resource(&RName("/test/thr".to_string()))
+        .declare_resource(&RName("/test/overhead".to_string()))
         .await
         .unwrap());
     let _publ = session.declare_publisher(&reskey).await.unwrap();
@@ -100,6 +102,7 @@ async fn main() {
                 .unwrap();
             c_count.fetch_add(1, Ordering::Relaxed);
             i += 1;
+            task::sleep(Duration::from_secs_f64(opt.interval)).await;
         }
     } else {
         while i < tot {
@@ -114,6 +117,7 @@ async fn main() {
                 .await
                 .unwrap();
             i += 1;
+            task::sleep(Duration::from_secs_f64(opt.interval)).await;
         }
     }
 }
