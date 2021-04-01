@@ -130,6 +130,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }
     });
 
+    let mut buffer = vec![0u8; 65_537];
     loop {
         // Read and decode the message length
         let mut length_bytes = [0u8; 2];
@@ -146,8 +147,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
         let to_read = u16::from_le_bytes(length_bytes) as usize;
         // Read the message
-        let mut buffer = vec![0u8; to_read];
-        let res = stream.read_exact(&mut buffer).await;
+        let res = stream.read_exact(&mut buffer[0..to_read]).await;
         match res {
             Ok(_) => {
                 let _ = counter.fetch_add(to_read as usize, Ordering::Relaxed);
