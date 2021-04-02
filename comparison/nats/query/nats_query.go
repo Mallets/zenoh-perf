@@ -26,11 +26,10 @@ import (
 	"fmt"
 )
 
-const resourceNamePing = "test.ping"
-const resourceNamePong = "test.pong"
+const resourceName = "test.query"
 
 func usage() {
-	log.Printf("Usage: nats-ping [-s server] [-p payload size] [-v ]\n")
+	log.Printf("Usage: nats-query-thr [-s server] [-p payload size] [-v ]\n")
 	flag.PrintDefaults()
 }
 
@@ -64,6 +63,7 @@ func deserializeSequenceNumber(payload *[]byte) uint64 {
 	return seqNumber
 }
 
+
 func main() {
 	var server = flag.String("s", "127.0.0.1:4222", "The nats server URL")
 	var payloadSize = flag.Int("p", 8, "Payload size")
@@ -82,7 +82,7 @@ func main() {
 
 
 	// Connect Options.
-	opts := []nats.Option{nats.Name("NATS Ping")}
+	opts := []nats.Option{nats.Name("NATS Query Throughput")}
 
 
 	nc, err := nats.Connect(*server, opts...)
@@ -94,31 +94,27 @@ func main() {
     var payload = make([]byte, *payloadSize)
 	var seqNumber uint64 = 0
 
-
     for i := range payload {
         payload[i] = 0
     }
 
-	sub, _ := nc.SubscribeSync(resourceNamePong)
-
 
     for {
 		serializeSequenceNumber(seqNumber, &payload)
+
 		start := time.Now()
-        if err := nc.Publish(resourceNamePing, payload); err != nil {
-			panic(err)
-        }
-		m, err := sub.NextMsg(60 * time.Second) // Timeout is always required...
+		m, err := nc.Request(resourceName, payload, 60*time.Second) //Timeout is required
 		t := time.Now()
 		if err != nil {
 			panic(err)
 		}
 		seq := deserializeSequenceNumber(&m.Data)
-
-
 		elapsed := t.Sub(start)
-		fmt.Printf("nats,%s,latency,%s,%d,%d,%d\n", *scenario, *name, *payloadSize, seq,elapsed.Microseconds())
+
+		//t := time.Now()
+		fmt.Printf("nats,%s,query.latency,%s,%d,%d,%d\n", *scenario, *name, *payloadSize, seq,elapsed.Microseconds())
 		seqNumber += 1
 		time.Sleep(time.Duration(*interveal)*time.Second)
+
 	}
 }
