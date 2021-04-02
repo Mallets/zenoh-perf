@@ -21,16 +21,16 @@ import (
 	"flag"
 	"log"
 	"os"
-	"sync/atomic"
 	"time"
 	"github.com/nats-io/nats.go"
-	"fmt"
 )
 
-const resourceName = "test.thr"
+const resourceNamePing = "test.ping"
+const resourceNamePong = "test.pong"
+
 
 func usage() {
-	log.Printf("Usage: nats-pub [-s server] [-p payload size] [-n test name] [-c scenario]\n")
+	log.Printf("Usage: nats-pong [-s server] [-p payload size] [-n test name] [-c scenario]\n")
 	flag.PrintDefaults()
 }
 
@@ -44,12 +44,7 @@ func showUsageAndExit(exitcode int) {
 
 func main() {
 	var server = flag.String("s", "127.0.0.1:4222", "The nats server URL")
-	var payloadSize = flag.Int("p", 8, "Payload size")
 	var showHelp = flag.Bool("h", false, "Show help message")
-	var name = flag.String("n", "test", "The test name")
-	var scenario = flag.String("c", "brokered", "The test scenario")
-
-	var counter uint64
 
 	log.SetFlags(0)
 	flag.Usage = usage
@@ -60,7 +55,7 @@ func main() {
 	}
 
 	// Connect Options.
-	opts := []nats.Option{nats.Name("NATS Throughput Subscriber")}
+	opts := []nats.Option{nats.Name("NATS Pong")}
 
 	// Connect to NATS
 	nc, err := nats.Connect(*server, opts...)
@@ -69,10 +64,9 @@ func main() {
 	}
 	defer nc.Close()
 
-	atomic.StoreUint64(&counter,0)
 
-	_, err = nc.Subscribe(resourceName, func(msg *nats.Msg) {
-		atomic.AddUint64(&counter, 1)
+	_, err = nc.Subscribe(resourceNamePing, func(msg *nats.Msg) {
+		nc.Publish(resourceNamePong, msg.Data)
 	})
 	if  err != nil {
 		panic(err)
@@ -84,15 +78,7 @@ func main() {
 	}
 
 	for {
-		//start := time.Now()
-		time.Sleep(1*time.Second)
-		//t := time.Now()
-		//elapsed := t.Sub(start)
-
-		c := atomic.SwapUint64(&counter,0)
-		// if c > 0 {
-		fmt.Printf("nats,%s,throughout,%s,%d,%d\n", *scenario, *name, *payloadSize, c)
-		// }
+		time.Sleep(1000*time.Second)
 	}
 
 

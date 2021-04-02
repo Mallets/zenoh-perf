@@ -13,6 +13,7 @@
 //
 
 // NATS v2.2.0
+// nats-go v1.10
 
 package main
 
