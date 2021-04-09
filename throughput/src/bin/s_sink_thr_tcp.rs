@@ -83,7 +83,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
                 cookie,
                 attachment,
             );
-
+            // Send the InitAck
             let _ = zsend!(message, stream).unwrap();
         }
         _ => panic!(),
@@ -97,12 +97,13 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }) => {
             let attachment = None;
             let message = SessionMessage::make_open_ack(*lease, *initial_sn, attachment);
-
+            // Send the OpenAck
             let _ = zsend!(message, stream).unwrap();
         }
         _ => panic!(),
     }
 
+    // Spawn the loggin task
     let counter = Arc::new(AtomicUsize::new(0));
     let c_c = counter.clone();
     task::spawn(async move {
@@ -115,6 +116,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }
     });
 
+    // Spawn the KeepAlive task
     let active = Arc::new(AtomicBool::new(true));
     let mut c_stream = stream.clone();
     let c_active = active.clone();
@@ -130,6 +132,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }
     });
 
+    // Read from the socket
     let mut buffer = vec![0u8; 65_537];
     loop {
         // Read and decode the message length
