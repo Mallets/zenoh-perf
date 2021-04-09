@@ -184,7 +184,9 @@ async fn main() {
         .new_primitives(OutSession::Primitives(my_primitives))
         .await;
 
-    primitives.decl_resource(1, &"/tp".to_string().into()).await;
+    primitives
+        .decl_resource(1, &"/test/thr".to_string().into())
+        .await;
 
     let rid = ResKey::RId(1);
     let sub_info = SubInfo {
