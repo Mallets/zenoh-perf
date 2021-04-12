@@ -14,7 +14,6 @@
 use async_std::future;
 use async_std::sync::Arc;
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
@@ -48,9 +47,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -153,7 +151,7 @@ async fn main() {
     if whatami == whatami::PEER {
         manager.add_listener(&opt.locator).await.unwrap();
     } else {
-        let _session = manager.open_session(&opt.locator).await.unwrap();
+        let _session = manager.open_session(&opt.locator).unwrap();
     }
 
     // Stop forever

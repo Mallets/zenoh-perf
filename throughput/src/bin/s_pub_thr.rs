@@ -13,7 +13,6 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -36,9 +35,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -87,7 +85,7 @@ async fn main() {
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.peer).unwrap();
 
     // Send reliable messages
     let reliability = Reliability::Reliable;
@@ -123,7 +121,7 @@ async fn main() {
                 reply_context.clone(),
                 attachment.clone(),
             );
-            let res = session.handle_message(message).await;
+            let res = session.handle_message(message);
             if res.is_err() {
                 break;
             }
@@ -141,7 +139,7 @@ async fn main() {
                 reply_context.clone(),
                 attachment.clone(),
             );
-            let res = session.handle_message(message).await;
+            let res = session.handle_message(message);
             if res.is_err() {
                 break;
             }

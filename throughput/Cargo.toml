@@ -47,12 +47,3 @@ name = "s_pub_thr"
 
 [[bin]]
 name = "s_sub_thr"
-
-[[bin]]
-name = "s_pubsub_thr"
-
-[[bin]]
-name = "s_router_thr"
-
-[[bin]]
-name = "s_sink_thr_tcp"
