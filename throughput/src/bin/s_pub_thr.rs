@@ -23,8 +23,8 @@ use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::link::Locator;
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler,
-    SessionManager, SessionManagerConfig,
+    DummySessionEventHandler, Session, SessionEventHandler, SessionHandler, SessionManager,
+    SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -82,7 +82,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
+        handler: Arc::new(MySH::new()),
     };
     let manager = SessionManager::new(config, None);
 

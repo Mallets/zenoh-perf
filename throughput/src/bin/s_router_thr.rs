@@ -12,17 +12,16 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::future;
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use rand::RngCore;
 use slab::Slab;
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -47,7 +46,7 @@ impl SessionHandler for MySH {
         &self,
         session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
-        let index = self.table.lock().await.insert(session);
+        let index = self.table.lock().unwrap().insert(session);
         Ok(Arc::new(MyMH::new(self.table.clone(), index)))
     }
 }
@@ -64,21 +63,20 @@ impl MyMH {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
-        for (i, e) in self.table.lock().await.iter() {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+        for (i, e) in self.table.lock().unwrap().iter() {
             if i != self.index {
-                let _ = e.handle_message(message.clone()).await;
+                let _ = e.handle_message(message.clone());
             }
         }
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
 }
 
 #[derive(Debug, StructOpt)]
@@ -103,7 +101,7 @@ async fn main() {
         version: 0,
         whatami: whatami::PEER,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
+        handler: Arc::new(MySH::new()),
     };
     let manager = SessionManager::new(config, None);
 

@@ -39,8 +39,8 @@ log = "0.4.14"
 rand = "0.8.3"
 slab = "0.4.2"
 structopt = "0.3.21"
-zenoh =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
-zenoh-util =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
+zenoh =  { path = "../../mallets-zenoh/zenoh" }
+zenoh-util =  { path = "../../mallets-zenoh/zenoh-util" }
 
 [[bin]]
 name = "s_pub_thr"
@@ -56,21 +56,3 @@ name = "s_router_thr"
 
 [[bin]]
 name = "s_sink_thr_tcp"
-
-[[bin]]
-name = "r_pub_thr"
-
-[[bin]]
-name = "r_sub_thr"
-
-[[bin]]
-name = "zn_sub_thr"
-
-[[bin]]
-name = "zn_pub_thr"
-
-[[bin]]
-name = "z_sub_thr"
-
-[[bin]]
-name = "z_put_thr"
