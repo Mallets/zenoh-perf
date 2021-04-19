@@ -14,6 +14,7 @@
 use async_std::sync::Arc;
 use async_std::task;
 use async_trait::async_trait;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -29,6 +30,7 @@ use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
+use zenoh_util::properties::{IntKeyProperties, Properties};
 
 struct ThroughputPrimitives {
     count: Arc<AtomicUsize>,
@@ -149,6 +151,8 @@ struct Opt {
     name: String,
     #[structopt(short = "s", long = "scenario")]
     scenario: String,
+    #[structopt(parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 #[async_std::main]
@@ -159,7 +163,14 @@ async fn main() {
     // Parse the args
     let opt = Opt::from_args();
 
-    let mut config = ConfigProperties::default();
+    let mut config = match opt.config.as_ref() {
+        Some(f) => {
+            let config = async_std::fs::read_to_string(f).await.unwrap();
+            let properties = Properties::from(config);
+            IntKeyProperties::from(properties)
+        }
+        None => ConfigProperties::default(),
+    };
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
     if opt.scout {

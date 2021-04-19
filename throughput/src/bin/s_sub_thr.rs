@@ -16,6 +16,7 @@ use async_std::sync::Arc;
 use async_std::task;
 use async_trait::async_trait;
 use rand::RngCore;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -24,9 +25,10 @@ use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
     Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    SessionManagerConfig, SessionManagerOptionalConfig,
 };
 use zenoh_util::core::ZResult;
+use zenoh_util::properties::{IntKeyProperties, Properties};
 
 // Session Handler for the peer
 struct MySH {
@@ -121,6 +123,8 @@ struct Opt {
     name: String,
     #[structopt(short = "s", long = "scenario")]
     scenario: String,
+    #[structopt(parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 #[async_std::main]
@@ -154,7 +158,18 @@ async fn main() {
             count,
         ))),
     };
-    let manager = SessionManager::new(config, None);
+    let opt_config = match opt.config.as_ref() {
+        Some(f) => {
+            let config = async_std::fs::read_to_string(f).await.unwrap();
+            let properties = Properties::from(config);
+            let int_props = IntKeyProperties::from(properties);
+            SessionManagerOptionalConfig::from_properties(&int_props)
+                .await
+                .unwrap()
+        }
+        None => None,
+    };
+    let manager = SessionManager::new(config, opt_config);
 
     // Connect to the peer or listen
     if whatami == whatami::PEER {

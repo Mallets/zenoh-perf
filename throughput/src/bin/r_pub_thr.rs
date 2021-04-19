@@ -13,6 +13,7 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
@@ -24,6 +25,7 @@ use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
+use zenoh_util::properties::{IntKeyProperties, Properties};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "r_pub_thr")]
@@ -38,6 +40,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "t", long = "print")]
     print: bool,
+    #[structopt(parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 #[async_std::main]
@@ -48,7 +52,14 @@ async fn main() {
     // Parse the args
     let opt = Opt::from_args();
 
-    let mut config = ConfigProperties::default();
+    let mut config = match opt.config.as_ref() {
+        Some(f) => {
+            let config = async_std::fs::read_to_string(f).await.unwrap();
+            let properties = Properties::from(config);
+            IntKeyProperties::from(properties)
+        }
+        None => ConfigProperties::default(),
+    };
     config.insert(ZN_MODE_KEY, opt.mode.clone());
     config.insert(ZN_ADD_TIMESTAMP_KEY, "false".to_string());
 
