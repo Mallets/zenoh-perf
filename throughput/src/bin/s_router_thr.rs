@@ -88,7 +88,7 @@ impl SessionEventHandler for MyMH {
 struct Opt {
     #[structopt(short = "l", long = "listener")]
     listener: Locator,
-    #[structopt(parse(from_os_str))]
+    #[structopt(short = "c", long = "conf", parse(from_os_str))]
     config: Option<PathBuf>,
 }
 

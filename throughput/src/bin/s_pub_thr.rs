@@ -59,7 +59,7 @@ struct Opt {
     payload: usize,
     #[structopt(short = "t", long = "print")]
     print: bool,
-    #[structopt(parse(from_os_str))]
+    #[structopt(short = "c", long = "conf", parse(from_os_str))]
     config: Option<PathBuf>,
 }
 
