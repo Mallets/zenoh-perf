@@ -143,7 +143,8 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
+        // handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
+        handler: zenoh::net::protocol::session::SessionDispatcher::SessionHandler(Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count))),
     };
     let manager = SessionManager::new(config, None);
 
@@ -151,7 +152,7 @@ async fn main() {
     if whatami == whatami::PEER {
         manager.add_listener(&opt.locator).await.unwrap();
     } else {
-        let _session = manager.open_session(&opt.locator).unwrap();
+        let _session = manager.open_session(&opt.locator).await.unwrap();
     }
 
     // Stop forever

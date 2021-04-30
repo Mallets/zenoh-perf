@@ -80,12 +80,13 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: Arc::new(MySH::new()),
+        // handler: Arc::new(MySH::new()),
+        handler: zenoh::net::protocol::session::SessionDispatcher::SessionHandler(Arc::new(MySH::new()))
     };
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).unwrap();
+    let session = manager.open_session(&opt.peer).await.unwrap();
 
     // Send reliable messages
     let reliability = Reliability::Reliable;
