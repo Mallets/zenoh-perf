@@ -66,7 +66,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     let my_pid = PeerId::new(1, my_pid);
 
     // Create the reading buffer
-    let mut buffer = vec![0u8; 65_537];
+    let mut buffer = vec![0u8; 16_000_000];
 
     // Read the InitSyn
     let message = zrecv!(stream, buffer);
@@ -133,27 +133,10 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     });
 
     // Read from the socket
-    let mut buffer = vec![0u8; 65_537];
     loop {
-        // Read and decode the message length
-        let mut length_bytes = [0u8; 2];
-        let res = stream.read_exact(&mut length_bytes).await;
-        match res {
-            Ok(_) => {
-                let _ = counter.fetch_add(2, Ordering::Relaxed);
-            }
-            Err(_) => {
-                active.store(false, Ordering::Release);
-                break;
-            }
-        }
-
-        let to_read = u16::from_le_bytes(length_bytes) as usize;
-        // Read the message
-        let res = stream.read_exact(&mut buffer[0..to_read]).await;
-        match res {
-            Ok(_) => {
-                let _ = counter.fetch_add(to_read as usize, Ordering::Relaxed);
+        match stream.read(&mut buffer).await {
+            Ok(n) => {
+                let _ = counter.fetch_add(n, Ordering::Relaxed);
             }
             Err(_) => {
                 active.store(false, Ordering::Release);
