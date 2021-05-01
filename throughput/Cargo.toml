@@ -47,3 +47,6 @@ name = "s_pub_thr"
 
 [[bin]]
 name = "s_sub_thr"
+
+[[bin]]
+name = "s_sink_tcp"
