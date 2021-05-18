@@ -80,8 +80,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        // handler: Arc::new(MySH::new()),
-        handler: zenoh::net::protocol::session::SessionDispatcher::SessionHandler(Arc::new(MySH::new()))
+        handler: Arc::new(MySH::new()),
     };
     let manager = SessionManager::new(config, None);
 

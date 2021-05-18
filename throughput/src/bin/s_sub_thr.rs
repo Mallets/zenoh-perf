@@ -15,6 +15,7 @@ use async_std::future;
 use async_std::sync::Arc;
 use async_std::task;
 use rand::RngCore;
+use std::any::Any;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
@@ -102,6 +103,10 @@ impl SessionEventHandler for MyMH {
     fn del_link(&self, _link: Link) {}
     fn closing(&self) {}
     fn closed(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -143,8 +148,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        // handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
-        handler: zenoh::net::protocol::session::SessionDispatcher::SessionHandler(Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count))),
+        handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
     };
     let manager = SessionManager::new(config, None);
 
