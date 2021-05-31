@@ -62,7 +62,7 @@ async fn main() {
             Value::Raw(_, payload) => {
                 workspace
                     .put(&"/test/pong".try_into().unwrap(), payload.into())
-                    .await
+                    .wait()
                     .unwrap();
             }
             _ => panic!("Invalid value"),

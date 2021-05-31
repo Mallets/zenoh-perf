@@ -11,10 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
-use async_std::sync::{Arc, Barrier, Mutex};
 use async_std::task;
 use std::collections::HashMap;
+use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
@@ -84,10 +83,10 @@ async fn single(opt: Opt, config: Properties) {
                 data_kind::DEFAULT,
                 CongestionControl::Block, // Make sure to not drop messages because of congestion control
             )
-            .await
+            .wait()
             .unwrap();
 
-        let mut sample = sub.stream().next().await.unwrap();
+        let mut sample = sub.receiver().recv().unwrap();
         let mut count_bytes = [0u8; 8];
         sample.payload.read_bytes(&mut count_bytes);
         let s_count = u64::from_le_bytes(count_bytes);
@@ -138,13 +137,13 @@ async fn parallel(opt: Opt, config: Properties) {
             .unwrap();
 
         // Wait for the both publishers and subscribers to be declared
-        c_barrier.wait().await;
+        c_barrier.wait();
 
-        while let Some(mut sample) = sub.stream().next().await {
+        while let Ok(mut sample) = sub.receiver().recv() {
             let mut count_bytes = [0u8; 8];
             sample.payload.read_bytes(&mut count_bytes);
             let count = u64::from_le_bytes(count_bytes);
-            let instant = c_pending.lock().await.remove(&count).unwrap();
+            let instant = c_pending.lock().unwrap().remove(&count).unwrap();
             println!(
                 "zenoh-net,{},latency.parallel,{},{},{},{},{}",
                 scenario,
@@ -165,7 +164,7 @@ async fn parallel(opt: Opt, config: Properties) {
     let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
 
     // Wait for the both publishers and subscribers to be declared
-    barrier.wait().await;
+    barrier.wait();
 
     let sleep = Duration::from_secs_f64(opt.interval);
     let payload = vec![0u8; opt.payload - 8];
@@ -178,7 +177,7 @@ async fn parallel(opt: Opt, config: Properties) {
 
         let data: RBuf = data.into();
 
-        pending.lock().await.insert(count, Instant::now());
+        pending.lock().unwrap().insert(count, Instant::now());
         session
             .write_ext(
                 &reskey_ping,
@@ -187,7 +186,7 @@ async fn parallel(opt: Opt, config: Properties) {
                 data_kind::DEFAULT,
                 CongestionControl::Block, // Make sure to not drop messages because of congestion control
             )
-            .await
+            .wait()
             .unwrap();
 
         task::sleep(sleep).await;
