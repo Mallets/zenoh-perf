@@ -13,6 +13,7 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;

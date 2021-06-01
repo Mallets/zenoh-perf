@@ -15,6 +15,7 @@ use async_std::future;
 use rand::RngCore;
 use slab::Slab;
 use std::any::Any;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
@@ -22,6 +23,7 @@ use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
     Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
+    SessionManagerOptionalConfig,
 };
 use zenoh_util::core::ZResult;
 use zenoh_util::properties::{IntKeyProperties, Properties};
