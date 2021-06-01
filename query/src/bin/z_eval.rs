@@ -57,7 +57,7 @@ async fn main() {
     let mut get_stream = workspace.register_eval(&path.into()).await.unwrap();
     while let Some(get_request) = get_stream.next().await {
         let data = vec![0u8; opt.payload];
-        get_request.reply(path.clone(), data.into()).await;
+        get_request.reply(path.clone(), data.into());
     }
 
     get_stream.close().await.unwrap();
