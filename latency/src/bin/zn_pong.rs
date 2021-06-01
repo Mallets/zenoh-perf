@@ -12,7 +12,6 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::future;
-use async_std::stream::StreamExt;
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
 use zenoh::net::*;
@@ -75,7 +74,7 @@ async fn main() {
         .declare_subscriber(&reskey_ping, &sub_info)
         .await
         .unwrap();
-    while let Some(sample) = sub.stream().next().await {
+    while let Ok(sample) = sub.receiver().recv() {
         session
             .write_ext(
                 &reskey_pong,
@@ -84,7 +83,7 @@ async fn main() {
                 data_kind::DEFAULT,
                 CongestionControl::Block, // Make sure to not drop messages because of congestion control
             )
-            .await
+            .wait()
             .unwrap();
     }
 

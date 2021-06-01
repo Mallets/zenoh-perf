@@ -20,7 +20,6 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{CongestionControl, Reliability, ResKey};
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::session::DummyPrimitives;
-use zenoh::net::routing::OutSession;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
@@ -73,18 +72,11 @@ async fn main() {
     let my_primitives = Arc::new(DummyPrimitives::new());
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let primitives = runtime
-        .read()
-        .await
-        .router
-        .new_primitives(OutSession::Primitives(my_primitives))
-        .await;
+    let primitives = runtime.read().router.new_primitives(my_primitives);
 
-    primitives
-        .decl_resource(1, &"/test/thr".to_string().into())
-        .await;
+    primitives.decl_resource(1, &"/test/thr".to_string().into());
     let rid = ResKey::RId(1);
-    primitives.decl_publisher(&rid, None).await;
+    primitives.decl_publisher(&rid, None);
 
     // @TODO: Fix writer starvation in the RwLock and remove this sleep
     // Wait for the declare to arrive
@@ -105,30 +97,26 @@ async fn main() {
         });
 
         loop {
-            primitives
-                .send_data(
-                    &rid,
-                    payload.clone(),
-                    Reliability::Reliable,
-                    CongestionControl::Block,
-                    None,
-                    None,
-                )
-                .await;
+            primitives.send_data(
+                &rid,
+                payload.clone(),
+                Reliability::Reliable,
+                CongestionControl::Block,
+                None,
+                None,
+            );
             c_count.fetch_add(1, Ordering::Relaxed);
         }
     } else {
         loop {
-            primitives
-                .send_data(
-                    &rid,
-                    payload.clone(),
-                    Reliability::Reliable,
-                    CongestionControl::Block,
-                    None,
-                    None,
-                )
-                .await;
+            primitives.send_data(
+                &rid,
+                payload.clone(),
+                Reliability::Reliable,
+                CongestionControl::Block,
+                None,
+                None,
+            );
         }
     }
 }

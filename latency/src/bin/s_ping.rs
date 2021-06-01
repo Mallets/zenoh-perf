@@ -11,11 +11,11 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::{Arc, Barrier, Mutex};
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::any::Any;
 use std::collections::HashMap;
+use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
@@ -25,8 +25,7 @@ use zenoh::net::protocol::io::{RBuf, WBuf};
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Data, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -54,9 +53,8 @@ impl MySHParallel {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySHParallel {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -93,15 +91,14 @@ impl MyMHParallel {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMHParallel {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
             ZenohBody::Data(Data { mut payload, .. }) => {
                 let mut count_bytes = [0u8; 8];
                 payload.read_bytes(&mut count_bytes);
                 let count = u64::from_le_bytes(count_bytes);
-                let instant = self.pending.lock().await.remove(&count).unwrap();
+                let instant = self.pending.lock().unwrap().remove(&count).unwrap();
                 println!(
                     "session,{},latency.parallel,{},{},{},{},{}",
                     self.scenario,
@@ -117,10 +114,13 @@ impl SessionEventHandler for MyMHParallel {
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 // Session Handler for the blocking peer
@@ -134,9 +134,8 @@ impl MySHSequential {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySHSequential {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -155,26 +154,28 @@ impl MyMHSequential {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMHSequential {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
             ZenohBody::Data(Data { mut payload, .. }) => {
                 let mut count_bytes = [0u8; 8];
                 payload.read_bytes(&mut count_bytes);
                 let count = u64::from_le_bytes(count_bytes);
-                let barrier = self.pending.lock().await.remove(&count).unwrap();
-                barrier.wait().await;
+                let barrier = self.pending.lock().unwrap().remove(&count).unwrap();
+                barrier.wait();
             }
             _ => panic!("Invalid message"),
         }
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -202,7 +203,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySHSequential::new(pending.clone()))),
+        handler: Arc::new(MySHSequential::new(pending.clone())),
     };
     let manager = SessionManager::new(config, None);
 
@@ -241,11 +242,11 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
 
         // Insert the pending ping
         let barrier = Arc::new(Barrier::new(2));
-        pending.lock().await.insert(count, barrier.clone());
+        pending.lock().unwrap().insert(count, barrier.clone());
         let now = Instant::now();
-        session.handle_message(message).await.unwrap();
+        session.handle_message(message).unwrap();
         // Wait for the pong to arrive
-        barrier.wait().await;
+        barrier.wait();
         println!(
             "session,{},latency.sequential,{},{},{},{},{}",
             opt.scenario,
@@ -267,12 +268,12 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySHParallel::new(
+        handler: Arc::new(MySHParallel::new(
             opt.scenario,
             opt.name,
             opt.interval,
             pending.clone(),
-        ))),
+        )),
     };
     let manager = SessionManager::new(config, None);
 
@@ -310,9 +311,9 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         );
 
         // Insert the pending ping
-        pending.lock().await.insert(count, Instant::now());
+        pending.lock().unwrap().insert(count, Instant::now());
 
-        session.handle_message(message).await.unwrap();
+        session.handle_message(message).unwrap();
 
         task::sleep(sleep).await;
         count += 1;

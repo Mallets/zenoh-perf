@@ -11,20 +11,19 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::{Arc, Barrier, Mutex};
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId, QueryConsolidation, QueryTarget, ResKey};
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Data, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -41,9 +40,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -62,29 +60,31 @@ impl MyMH {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
             ZenohBody::Data(Data { .. }) => {
                 let reply_context = message.reply_context.unwrap();
                 let barrier = self
                     .pending
                     .lock()
-                    .await
+                    .unwrap()
                     .remove(&reply_context.qid)
                     .unwrap();
-                barrier.wait().await;
+                barrier.wait();
             }
             _ => panic!("Invalid message"),
         }
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -128,7 +128,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(pending.clone()))),
+        handler: Arc::new(MySH::new(pending.clone())),
     };
     let manager = SessionManager::new(config, None);
 
@@ -182,11 +182,11 @@ async fn main() {
 
         // Insert the pending query
         let barrier = Arc::new(Barrier::new(2));
-        pending.lock().await.insert(count, barrier.clone());
+        pending.lock().unwrap().insert(count, barrier.clone());
         let now = Instant::now();
-        session.handle_message(message).await.unwrap();
+        session.handle_message(message).unwrap();
         // Wait for the reply to arrive
-        barrier.wait().await;
+        barrier.wait();
         rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
 

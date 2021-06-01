@@ -13,9 +13,8 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
-use std::path::PathBuf;
+use std::any::Any;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
@@ -24,8 +23,7 @@ use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig, SessionManagerOptionalConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 use zenoh_util::properties::{IntKeyProperties, Properties};
@@ -51,9 +49,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -85,17 +82,19 @@ impl MyMH {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, _message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, _message: ZenohMessage) -> ZResult<()> {
         self.counter.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -143,12 +142,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(
-            opt.scenario,
-            opt.name,
-            opt.payload,
-            count,
-        ))),
+        handler: Arc::new(MySH::new(opt.scenario, opt.name, opt.payload, count)),
     };
     let opt_config = match opt.config.as_ref() {
         Some(f) => {
@@ -208,7 +202,7 @@ async fn main() {
         });
 
         loop {
-            let res = session.handle_message(message.clone()).await;
+            let res = session.handle_message(message.clone());
             if res.is_err() {
                 break;
             }
@@ -216,7 +210,7 @@ async fn main() {
         }
     } else {
         loop {
-            let res = session.handle_message(message.clone()).await;
+            let res = session.handle_message(message.clone());
             if res.is_err() {
                 break;
             }

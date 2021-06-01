@@ -12,10 +12,9 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use async_std::future;
-use async_std::sync::{Arc, Mutex};
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
@@ -24,7 +23,6 @@ use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
 use zenoh::net::routing::face::Face;
-use zenoh::net::routing::OutSession;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_LISTENER_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
@@ -45,30 +43,29 @@ impl EvalPrimitives {
         }
     }
 
-    async fn set_tx(&self, tx: Arc<Face>) {
-        let mut guard = self.tx.lock().await;
+    fn set_tx(&self, tx: Arc<Face>) {
+        let mut guard = self.tx.lock().unwrap();
         *guard = Some(tx);
     }
 }
 
-#[async_trait]
 impl Primitives for EvalPrimitives {
-    async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
-    async fn forget_resource(&self, _rid: ZInt) {}
-    async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn decl_subscriber(
+    fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
+    fn forget_resource(&self, _rid: ZInt) {}
+    fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_subscriber(
         &self,
         _reskey: &ResKey,
         _sub_info: &SubInfo,
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
-    async fn send_data(
+    fn send_data(
         &self,
         _reskey: &ResKey,
         _payload: RBuf,
@@ -78,7 +75,7 @@ impl Primitives for EvalPrimitives {
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn send_query(
+    fn send_query(
         &self,
         reskey: &ResKey,
         _predicate: &str,
@@ -92,17 +89,15 @@ impl Primitives for EvalPrimitives {
         let pid = self.pid.clone();
         let info = None;
         let payload = RBuf::from(vec![0u8; self.payload]);
-        let tx_primitives = self.tx.lock().await.as_ref().unwrap().clone();
+        let tx_primitives = self.tx.lock().unwrap().as_ref().unwrap().clone();
 
         // @TODO: once the router is re-entrant remove the task spawn
         task::spawn(async move {
-            tx_primitives
-                .send_reply_data(qid, source_kind, pid, reskey, info, payload)
-                .await;
-            tx_primitives.send_reply_final(qid).await;
+            tx_primitives.send_reply_data(qid, source_kind, pid, reskey, info, payload);
+            tx_primitives.send_reply_final(qid);
         });
     }
-    async fn send_reply_data(
+    fn send_reply_data(
         &self,
         _qid: ZInt,
         _source_kind: ZInt,
@@ -112,8 +107,8 @@ impl Primitives for EvalPrimitives {
         _payload: RBuf,
     ) {
     }
-    async fn send_reply_final(&self, _qid: ZInt) {}
-    async fn send_pull(
+    fn send_reply_final(&self, _qid: ZInt) {}
+    fn send_pull(
         &self,
         _is_final: bool,
         _reskey: &ResKey,
@@ -121,7 +116,7 @@ impl Primitives for EvalPrimitives {
         _max_samples: &Option<ZInt>,
     ) {
     }
-    async fn send_close(&self) {}
+    fn send_close(&self) {}
 }
 
 #[derive(Debug, StructOpt)]
@@ -165,17 +160,12 @@ async fn main() {
     let pid = PeerId::new(1, pid);
 
     let rx_primitives = Arc::new(EvalPrimitives::new(pid, opt.payload));
-    let tx_primitives = runtime
-        .read()
-        .await
-        .router
-        .new_primitives(OutSession::Primitives(rx_primitives.clone()))
-        .await;
-    rx_primitives.set_tx(tx_primitives.clone()).await;
+    let tx_primitives = runtime.read().router.new_primitives(rx_primitives.clone());
+    rx_primitives.set_tx(tx_primitives.clone());
 
     let rid = ResKey::RName("/test/query".to_string());
     let routing_context = None;
-    tx_primitives.decl_queryable(&rid, routing_context).await;
+    tx_primitives.decl_queryable(&rid, routing_context);
 
     // Stop forever
     future::pending::<()>().await;
