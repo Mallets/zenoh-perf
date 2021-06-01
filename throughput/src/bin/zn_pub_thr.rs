@@ -13,6 +13,7 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
@@ -33,6 +34,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "t", long = "print")]
     print: bool,
+    #[structopt(short = "c", long = "conf", parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 #[async_std::main]
@@ -43,7 +46,13 @@ async fn main() {
     // Parse the args
     let opt = Opt::from_args();
 
-    let mut config = Properties::default();
+    let mut config = match opt.config.as_ref() {
+        Some(f) => {
+            let config = async_std::fs::read_to_string(f).await.unwrap();
+            Properties::from(config)
+        }
+        None => Properties::default(),
+    };
     config.insert("mode".to_string(), opt.mode.clone());
     config.insert("add_timestamp".to_string(), "false".to_string());
 
