@@ -119,7 +119,7 @@ struct Opt {
     locator: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
+    #[structopt(short = "u", long = "scout")]
     scout: bool,
 }
 

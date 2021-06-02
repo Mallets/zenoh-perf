@@ -73,6 +73,9 @@ name = "zn_pub_thr"
 name = "zn_sub_thr"
 
 [[bin]]
+name = "zn_sub_thr_stream"
+
+[[bin]]
 name = "z_put_thr"
 
 [[bin]]
