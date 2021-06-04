@@ -37,6 +37,8 @@ struct Opt {
     interval: f64,
     #[structopt(long = "parallel")]
     parallel: bool,
+    #[structopt(short = "d", long = "samples")]
+    samples: Option<usize>,
 }
 
 async fn single(opt: Opt, config: Properties) {
@@ -194,6 +196,67 @@ async fn parallel(opt: Opt, config: Properties) {
     }
 }
 
+async fn samples(opt: Opt, config: Properties) {
+    let session = open(config.into()).await.unwrap();
+
+    // The resource to wait the response back
+    let reskey_pong = RId(session
+        .declare_resource(&RName("/test/pong".to_string()))
+        .await
+        .unwrap());
+    let sub_info = SubInfo {
+        reliability: Reliability::Reliable,
+        mode: SubMode::Push,
+        period: None,
+    };
+
+    let barrier = Arc::new(Barrier::new(2));
+    let c_barrier = barrier.clone();
+    let _sub = session
+        .declare_callback_subscriber(&reskey_pong, &sub_info, move |_sample| {
+            c_barrier.wait();
+        })
+        .await
+        .unwrap();
+
+    // The resource to publish data on
+    let reskey_ping = RId(session
+        .declare_resource(&RName("/test/ping".to_string()))
+        .await
+        .unwrap());
+    let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
+
+    let mut samples = vec![0u128; opt.samples.unwrap()];
+
+    let sleep = Duration::from_secs_f64(opt.interval);
+    let data: RBuf = vec![0u8; opt.payload].into();
+
+    for i in 0..opt.samples.unwrap() {
+        let now = Instant::now();
+        session
+            .write_ext(
+                &reskey_ping,
+                data.clone(),
+                encoding::DEFAULT,
+                data_kind::DEFAULT,
+                CongestionControl::Block, // Make sure to not drop messages because of congestion control
+            )
+            .wait()
+            .unwrap();
+
+        barrier.wait();
+        samples[i] = now.elapsed().as_micros();
+        task::sleep(sleep).await;
+    }
+
+    for i in 0..opt.samples.unwrap() {
+        println!(
+            "zenoh-net,{},latency.sequential.samples,{},{},{},{},{}",
+            opt.scenario, opt.name, opt.payload, opt.interval, i, samples[i]
+        );
+    }
+}
+
 #[async_std::main]
 async fn main() {
     // initiate logging
@@ -214,7 +277,12 @@ async fn main() {
 
     if opt.parallel {
         parallel(opt, config).await;
-    } else {
-        single(opt, config).await;
+        return;
     }
+    if opt.samples.is_some() {
+        samples(opt, config).await;
+        return;
+    }
+
+    single(opt, config).await;
 }
