@@ -14,7 +14,7 @@
 #
 [package]
 name = "zenoh-perf-throughput"
-version = "0.5.0-beta.5"
+version = "0.5.0-beta.8"
 repository = "https://github.com/eclipse-zenoh/zenoh"
 homepage = "http://zenoh.io"
 authors = ["kydos <angelo@icorsaro.net>",
@@ -39,8 +39,8 @@ log = "0.4.14"
 rand = "0.8.3"
 slab = "0.4.2"
 structopt = "0.3.21"
-zenoh =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
-zenoh-util =  { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
+zenoh-util = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
 
 [[bin]]
 name = "s_pub_thr"
@@ -55,7 +55,10 @@ name = "s_pubsub_thr"
 name = "s_router_thr"
 
 [[bin]]
-name = "s_sink_thr_tcp"
+name = "s_sink_tcp"
+
+[[bin]]
+name = "s_sink_udp"
 
 [[bin]]
 name = "r_pub_thr"
@@ -64,13 +67,16 @@ name = "r_pub_thr"
 name = "r_sub_thr"
 
 [[bin]]
-name = "zn_sub_thr"
-
-[[bin]]
 name = "zn_pub_thr"
 
 [[bin]]
-name = "z_sub_thr"
+name = "zn_sub_thr"
+
+[[bin]]
+name = "zn_sub_thr_stream"
 
 [[bin]]
 name = "z_put_thr"
+
+[[bin]]
+name = "z_sub_thr"

@@ -13,16 +13,16 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
-use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
+use zenoh::net::ResKey::*;
+use zenoh::net::*;
 use zenoh::Properties;
-use zenoh::*;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "z_sub_thr")]
+#[structopt(name = "zn_sub_thr_stream")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
     locator: Option<String>,
@@ -56,47 +56,58 @@ async fn main() {
         None => Properties::default(),
     };
     config.insert("mode".to_string(), opt.mode.clone());
-
     if opt.scout {
         config.insert("multicast_scouting".to_string(), "true".to_string());
     } else {
         config.insert("multicast_scouting".to_string(), "false".to_string());
+        let loc = opt.locator.clone().unwrap();
         match opt.mode.as_str() {
-            "peer" => config.insert("listener".to_string(), opt.locator.unwrap()),
-            "client" => config.insert("peer".to_string(), opt.locator.unwrap()),
+            "peer" => config.insert("listener".to_string(), loc),
+            "client" => config.insert("peer".to_string(), loc),
             _ => panic!("Unsupported mode: {}", opt.mode),
         };
     }
 
-    let zenoh = Zenoh::new(config.into()).await.unwrap();
-    let workspace = zenoh.workspace(None).await.unwrap();
-    let selector = Selector::try_from("/test/thr").unwrap();
+    let session = open(config.into()).await.unwrap();
+
+    let reskey = RId(session
+        .declare_resource(&RName("/test/thr".to_string()))
+        .await
+        .unwrap());
 
     let messages = Arc::new(AtomicUsize::new(0));
     let c_messages = messages.clone();
+    task::spawn(async move {
+        loop {
+            let now = Instant::now();
+            task::sleep(Duration::from_secs(1)).await;
+            let elapsed = now.elapsed().as_micros() as f64;
 
-    let _sub = workspace
-        .subscribe_with_callback(&selector, move |_change| {
-            c_messages.fetch_add(1, Ordering::Relaxed);
-        })
+            let c = c_messages.swap(0, Ordering::Relaxed);
+            if c > 0 {
+                let interval = 1_000_000.0 / elapsed;
+                println!(
+                    "zenoh-net,{},throughput,{},{},{}",
+                    opt.scenario,
+                    opt.name,
+                    opt.payload,
+                    (c as f64 / interval).floor() as usize
+                );
+            }
+        }
+    });
+
+    let sub_info = SubInfo {
+        reliability: Reliability::Reliable,
+        mode: SubMode::Push,
+        period: None,
+    };
+    let mut sub = session
+        .declare_subscriber(&reskey, &sub_info)
         .await
         .unwrap();
 
-    loop {
-        let now = Instant::now();
-        task::sleep(Duration::from_secs(1)).await;
-        let elapsed = now.elapsed().as_micros() as f64;
-
-        let c = messages.swap(0, Ordering::Relaxed);
-        if c > 0 {
-            let interval = 1_000_000.0 / elapsed;
-            println!(
-                "zenoh,{},throughput,{},{},{}",
-                opt.scenario,
-                opt.name,
-                opt.payload,
-                (c as f64 / interval).floor() as usize
-            );
-        }
+    while let Ok(_) = sub.receiver().recv() {
+        messages.fetch_add(1, Ordering::Relaxed);
     }
 }

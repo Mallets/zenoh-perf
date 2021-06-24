@@ -11,7 +11,6 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
 use structopt::StructOpt;
 use zenoh::net::queryable::EVAL;
 use zenoh::net::*;
@@ -24,7 +23,7 @@ struct Opt {
     locator: Option<String>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "s", long = "scout")]
+    #[structopt(short = "u", long = "scout")]
     scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
@@ -58,13 +57,11 @@ async fn main() {
     let path = "/test/query".to_string();
     let reskey = ResKey::RName(path.clone());
     let mut queryable = session.declare_queryable(&reskey, EVAL).await.unwrap();
-    while let Some(query) = queryable.stream().next().await {
-        query
-            .reply(Sample {
-                res_name: path.clone(),
-                payload: vec![0u8; opt.payload].into(),
-                data_info: None,
-            })
-            .await;
+    while let Ok(query) = queryable.receiver().recv() {
+        query.reply(Sample {
+            res_name: path.clone(),
+            payload: vec![0u8; opt.payload].into(),
+            data_info: None,
+        });
     }
 }

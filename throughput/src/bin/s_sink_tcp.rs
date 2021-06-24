@@ -17,7 +17,7 @@ use async_std::sync::Arc;
 use async_std::task;
 use rand::RngCore;
 use std::convert::TryInto;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
@@ -36,11 +36,11 @@ macro_rules! zsend {
         let length: u16 = wbuf.len() as u16 - 2;
         let bits = wbuf.get_first_slice_mut(..2);
         bits.copy_from_slice(&length.to_le_bytes());
-        let mut buffer = vec![0u8; wbuf.len()];
-        wbuf.copy_into_slice(&mut buffer[..]);
+        let mut bytes = vec![0u8; wbuf.len()];
+        wbuf.copy_into_slice(&mut bytes[..]);
 
         // Send the message on the link
-        let res = $stream.write_all(&buffer).await;
+        let res = $stream.write_all(&bytes).await;
         log::trace!("Sending {:?}: {:?}", $msg, res);
 
         res
@@ -66,7 +66,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
     let my_pid = PeerId::new(1, my_pid);
 
     // Create the reading buffer
-    let mut buffer = vec![0u8; 65_537];
+    let mut buffer = vec![0u8; 16_000_000];
 
     // Read the InitSyn
     let message = zrecv!(stream, buffer);
@@ -83,7 +83,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
                 cookie,
                 attachment,
             );
-
+            // Send the InitAck
             let _ = zsend!(message, stream).unwrap();
         }
         _ => panic!(),
@@ -97,12 +97,13 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }) => {
             let attachment = None;
             let message = SessionMessage::make_open_ack(*lease, *initial_sn, attachment);
-
+            // Send the OpenAck
             let _ = zsend!(message, stream).unwrap();
         }
         _ => panic!(),
     }
 
+    // Spawn the loggin task
     let counter = Arc::new(AtomicUsize::new(0));
     let c_c = counter.clone();
     task::spawn(async move {
@@ -115,50 +116,21 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         }
     });
 
-    let active = Arc::new(AtomicBool::new(true));
+    // Spawn the KeepAlive task
     let mut c_stream = stream.clone();
-    let c_active = active.clone();
     task::spawn(async move {
-        while c_active.load(Ordering::Acquire) {
+        loop {
             task::sleep(Duration::from_secs(1)).await;
             let message = SessionMessage::make_keep_alive(None, None);
-
-            let res = zsend!(message, c_stream);
-            if res.is_err() {
-                break;
-            }
+            let _ = zsend!(message, c_stream).unwrap();
         }
     });
 
-    let mut buffer = vec![0u8; 65_537];
+    // Read from the socket
     loop {
-        // Read and decode the message length
-        let mut length_bytes = [0u8; 2];
-        let res = stream.read_exact(&mut length_bytes).await;
-        match res {
-            Ok(_) => {
-                let _ = counter.fetch_add(2, Ordering::Relaxed);
-            }
-            Err(_) => {
-                active.store(false, Ordering::Release);
-                break;
-            }
-        }
-
-        let to_read = u16::from_le_bytes(length_bytes) as usize;
-        // Read the message
-        let res = stream.read_exact(&mut buffer[0..to_read]).await;
-        match res {
-            Ok(_) => {
-                let _ = counter.fetch_add(to_read as usize, Ordering::Relaxed);
-            }
-            Err(_) => {
-                active.store(false, Ordering::Release);
-                break;
-            }
-        }
+        let n = stream.read(&mut buffer).await.unwrap();
+        let _ = counter.fetch_add(n, Ordering::Relaxed);
     }
-    Ok(())
 }
 
 async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
@@ -176,7 +148,7 @@ async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "s_sink_thr_tcp")]
+#[structopt(name = "s_sink_tcp")]
 struct Opt {
     #[structopt(short = "l", long = "listener")]
     listener: SocketAddr,
@@ -184,11 +156,7 @@ struct Opt {
 
 #[async_std::main]
 async fn main() {
-    // Enable logging
     env_logger::init();
-
-    // Parse the args
     let opt = Opt::from_args();
-
     let _ = run(opt.listener).await;
 }

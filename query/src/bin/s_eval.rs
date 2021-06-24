@@ -13,16 +13,15 @@
 //
 use async_std::future;
 use async_std::sync::Arc;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::any::Any;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Query, ReplyContext, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -37,12 +36,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
-        &self,
-        session: Session,
-    ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
+    fn new_session(&self, session: Session) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
         Ok(Arc::new(MyMH::new(session, self.payload)))
     }
 }
@@ -59,9 +54,8 @@ impl MyMH {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
             ZenohBody::Query(Query { qid, .. }) => {
                 // Send reliable messages
@@ -90,16 +84,19 @@ impl SessionEventHandler for MyMH {
                     attachment,
                 );
 
-                self.session.handle_message(message).await
+                self.session.handle_message(message)
             }
             _ => panic!("Invalid message"),
         }
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -136,7 +133,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new(opt.payload))),
+        handler: Arc::new(MySH::new(opt.payload)),
     };
     let manager = SessionManager::new(config, None);
 

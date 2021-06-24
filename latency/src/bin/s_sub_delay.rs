@@ -13,16 +13,15 @@
 //
 use async_std::future;
 use async_std::sync::Arc;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::any::Any;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Data, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
-    Session, SessionDispatcher, SessionEventHandler, SessionHandler, SessionManager,
-    SessionManagerConfig,
+    Session, SessionEventHandler, SessionHandler, SessionManager, SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -35,9 +34,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -54,9 +52,8 @@ impl MyMH {
     }
 }
 
-#[async_trait]
 impl SessionEventHandler for MyMH {
-    async fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
+    fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
             ZenohBody::Data(Data { mut payload, .. }) => {
                 let mut count_bytes = [0u8; 8];
@@ -81,10 +78,13 @@ impl SessionEventHandler for MyMH {
         Ok(())
     }
 
-    async fn new_link(&self, _link: Link) {}
-    async fn del_link(&self, _link: Link) {}
-    async fn closing(&self) {}
-    async fn closed(&self) {}
+    fn new_link(&self, _link: Link) {}
+    fn del_link(&self, _link: Link) {}
+    fn closing(&self) {}
+    fn closed(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -119,7 +119,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
+        handler: Arc::new(MySH::new()),
     };
     let manager = SessionManager::new(config, None);
 

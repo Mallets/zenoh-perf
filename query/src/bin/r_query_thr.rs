@@ -11,11 +11,10 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::sync::{Arc, Barrier, Mutex};
 use async_std::task;
-use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
@@ -24,7 +23,6 @@ use zenoh::net::protocol::core::{
 use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
-use zenoh::net::routing::OutSession;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
@@ -42,24 +40,23 @@ impl QueryPrimitives {
     }
 }
 
-#[async_trait]
 impl Primitives for QueryPrimitives {
-    async fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
-    async fn forget_resource(&self, _rid: ZInt) {}
-    async fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn decl_subscriber(
+    fn decl_resource(&self, _rid: ZInt, _reskey: &ResKey) {}
+    fn forget_resource(&self, _rid: ZInt) {}
+    fn decl_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_publisher(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_subscriber(
         &self,
         _reskey: &ResKey,
         _sub_info: &SubInfo,
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    async fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
-    async fn send_data(
+    fn send_data(
         &self,
         _reskey: &ResKey,
         _payload: RBuf,
@@ -69,7 +66,7 @@ impl Primitives for QueryPrimitives {
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn send_query(
+    fn send_query(
         &self,
         _reskey: &ResKey,
         _predicate: &str,
@@ -79,7 +76,7 @@ impl Primitives for QueryPrimitives {
         _routing_context: Option<RoutingContext>,
     ) {
     }
-    async fn send_reply_data(
+    fn send_reply_data(
         &self,
         qid: ZInt,
         _source_kind: ZInt,
@@ -88,11 +85,11 @@ impl Primitives for QueryPrimitives {
         _info: Option<DataInfo>,
         _payload: RBuf,
     ) {
-        let barrier = self.pending.lock().await.remove(&qid).unwrap();
-        barrier.wait().await;
+        let barrier = self.pending.lock().unwrap().remove(&qid).unwrap();
+        barrier.wait();
     }
-    async fn send_reply_final(&self, _qid: ZInt) {}
-    async fn send_pull(
+    fn send_reply_final(&self, _qid: ZInt) {}
+    fn send_pull(
         &self,
         _is_final: bool,
         _reskey: &ResKey,
@@ -100,7 +97,7 @@ impl Primitives for QueryPrimitives {
         _max_samples: &Option<ZInt>,
     ) {
     }
-    async fn send_close(&self) {}
+    fn send_close(&self) {}
 }
 
 #[derive(Debug, StructOpt)]
@@ -142,12 +139,7 @@ async fn main() {
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let rx_primitives = Arc::new(QueryPrimitives::new(pending.clone()));
-    let tx_primitives = runtime
-        .read()
-        .await
-        .router
-        .new_primitives(OutSession::Primitives(rx_primitives))
-        .await;
+    let tx_primitives = runtime.read().router.new_primitives(rx_primitives);
 
     let c_rtt = rtt.clone();
     let c_counter = counter.clone();
@@ -184,20 +176,18 @@ async fn main() {
 
         // Insert the pending query
         let barrier = Arc::new(Barrier::new(2));
-        pending.lock().await.insert(count, barrier.clone());
+        pending.lock().unwrap().insert(count, barrier.clone());
         let now = Instant::now();
-        tx_primitives
-            .send_query(
-                &reskey,
-                &predicate,
-                qid,
-                target.clone(),
-                consolidation.clone(),
-                routing_context,
-            )
-            .await;
+        tx_primitives.send_query(
+            &reskey,
+            &predicate,
+            qid,
+            target.clone(),
+            consolidation.clone(),
+            routing_context,
+        );
         // Wait for the reply to arrive
-        barrier.wait().await;
+        barrier.wait();
         rtt.fetch_add(now.elapsed().as_micros() as usize, Ordering::Relaxed);
         counter.fetch_add(1, Ordering::Relaxed);
 

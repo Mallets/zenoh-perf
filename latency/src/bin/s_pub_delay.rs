@@ -13,7 +13,6 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
@@ -21,8 +20,8 @@ use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability
 use zenoh::net::protocol::link::Locator;
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler,
-    SessionManager, SessionManagerConfig,
+    DummySessionEventHandler, Session, SessionEventHandler, SessionHandler, SessionManager,
+    SessionManagerConfig,
 };
 use zenoh_util::core::ZResult;
 
@@ -34,9 +33,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -80,7 +78,7 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
+        handler: Arc::new(MySH::new()),
     };
     let manager = SessionManager::new(config, None);
 
@@ -121,7 +119,7 @@ async fn main() {
             attachment,
         );
 
-        let _ = session.handle_message(message.clone()).await.unwrap();
+        let _ = session.handle_message(message.clone()).unwrap();
 
         task::sleep(Duration::from_secs_f64(opt.interval)).await;
         count += 1;

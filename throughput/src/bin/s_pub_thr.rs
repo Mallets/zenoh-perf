@@ -13,8 +13,8 @@
 //
 use async_std::sync::Arc;
 use async_std::task;
-use async_trait::async_trait;
 use rand::RngCore;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
@@ -23,10 +23,11 @@ use zenoh::net::protocol::io::RBuf;
 use zenoh::net::protocol::link::Locator;
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
-    DummySessionEventHandler, Session, SessionDispatcher, SessionEventHandler, SessionHandler,
-    SessionManager, SessionManagerConfig,
+    DummySessionEventHandler, Session, SessionEventHandler, SessionHandler, SessionManager,
+    SessionManagerConfig, SessionManagerOptionalConfig,
 };
 use zenoh_util::core::ZResult;
+use zenoh_util::properties::{IntKeyProperties, Properties};
 
 struct MySH {}
 
@@ -36,9 +37,8 @@ impl MySH {
     }
 }
 
-#[async_trait]
 impl SessionHandler for MySH {
-    async fn new_session(
+    fn new_session(
         &self,
         _session: Session,
     ) -> ZResult<Arc<dyn SessionEventHandler + Send + Sync>> {
@@ -57,6 +57,8 @@ struct Opt {
     payload: usize,
     #[structopt(short = "t", long = "print")]
     print: bool,
+    #[structopt(short = "c", long = "conf", parse(from_os_str))]
+    config: Option<PathBuf>,
 }
 
 #[async_std::main]
@@ -82,9 +84,20 @@ async fn main() {
         version: 0,
         whatami,
         id: pid,
-        handler: SessionDispatcher::SessionHandler(Arc::new(MySH::new())),
+        handler: Arc::new(MySH::new()),
     };
-    let manager = SessionManager::new(config, None);
+    let opt_config = match opt.config.as_ref() {
+        Some(f) => {
+            let config = async_std::fs::read_to_string(f).await.unwrap();
+            let properties = Properties::from(config);
+            let int_props = IntKeyProperties::from(properties);
+            SessionManagerOptionalConfig::from_properties(&int_props)
+                .await
+                .unwrap()
+        }
+        None => None,
+    };
+    let manager = SessionManager::new(config, opt_config);
 
     // Connect to publisher
     let session = manager.open_session(&opt.peer).await.unwrap();
@@ -123,7 +136,7 @@ async fn main() {
                 reply_context.clone(),
                 attachment.clone(),
             );
-            let res = session.handle_message(message).await;
+            let res = session.handle_message(message);
             if res.is_err() {
                 break;
             }
@@ -141,7 +154,7 @@ async fn main() {
                 reply_context.clone(),
                 attachment.clone(),
             );
-            let res = session.handle_message(message).await;
+            let res = session.handle_message(message);
             if res.is_err() {
                 break;
             }

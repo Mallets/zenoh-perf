@@ -11,10 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
-use async_std::sync::{Arc, Barrier, Mutex};
 use async_std::task;
 use std::collections::HashMap;
+use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::ResKey::*;
@@ -38,6 +37,8 @@ struct Opt {
     interval: f64,
     #[structopt(long = "parallel")]
     parallel: bool,
+    #[structopt(short = "d", long = "samples")]
+    samples: Option<usize>,
 }
 
 async fn single(opt: Opt, config: Properties) {
@@ -84,10 +85,10 @@ async fn single(opt: Opt, config: Properties) {
                 data_kind::DEFAULT,
                 CongestionControl::Block, // Make sure to not drop messages because of congestion control
             )
-            .await
+            .wait()
             .unwrap();
 
-        let mut sample = sub.stream().next().await.unwrap();
+        let mut sample = sub.receiver().recv().unwrap();
         let mut count_bytes = [0u8; 8];
         sample.payload.read_bytes(&mut count_bytes);
         let s_count = u64::from_le_bytes(count_bytes);
@@ -138,13 +139,13 @@ async fn parallel(opt: Opt, config: Properties) {
             .unwrap();
 
         // Wait for the both publishers and subscribers to be declared
-        c_barrier.wait().await;
+        c_barrier.wait();
 
-        while let Some(mut sample) = sub.stream().next().await {
+        while let Ok(mut sample) = sub.receiver().recv() {
             let mut count_bytes = [0u8; 8];
             sample.payload.read_bytes(&mut count_bytes);
             let count = u64::from_le_bytes(count_bytes);
-            let instant = c_pending.lock().await.remove(&count).unwrap();
+            let instant = c_pending.lock().unwrap().remove(&count).unwrap();
             println!(
                 "zenoh-net,{},latency.parallel,{},{},{},{},{}",
                 scenario,
@@ -165,7 +166,7 @@ async fn parallel(opt: Opt, config: Properties) {
     let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
 
     // Wait for the both publishers and subscribers to be declared
-    barrier.wait().await;
+    barrier.wait();
 
     let sleep = Duration::from_secs_f64(opt.interval);
     let payload = vec![0u8; opt.payload - 8];
@@ -178,7 +179,7 @@ async fn parallel(opt: Opt, config: Properties) {
 
         let data: RBuf = data.into();
 
-        pending.lock().await.insert(count, Instant::now());
+        pending.lock().unwrap().insert(count, Instant::now());
         session
             .write_ext(
                 &reskey_ping,
@@ -187,11 +188,72 @@ async fn parallel(opt: Opt, config: Properties) {
                 data_kind::DEFAULT,
                 CongestionControl::Block, // Make sure to not drop messages because of congestion control
             )
-            .await
+            .wait()
             .unwrap();
 
         task::sleep(sleep).await;
         count += 1;
+    }
+}
+
+async fn samples(opt: Opt, config: Properties) {
+    let session = open(config.into()).await.unwrap();
+
+    // The resource to wait the response back
+    let reskey_pong = RId(session
+        .declare_resource(&RName("/test/pong".to_string()))
+        .await
+        .unwrap());
+    let sub_info = SubInfo {
+        reliability: Reliability::Reliable,
+        mode: SubMode::Push,
+        period: None,
+    };
+
+    let barrier = Arc::new(Barrier::new(2));
+    let c_barrier = barrier.clone();
+    let _sub = session
+        .declare_callback_subscriber(&reskey_pong, &sub_info, move |_sample| {
+            c_barrier.wait();
+        })
+        .await
+        .unwrap();
+
+    // The resource to publish data on
+    let reskey_ping = RId(session
+        .declare_resource(&RName("/test/ping".to_string()))
+        .await
+        .unwrap());
+    let _publ = session.declare_publisher(&reskey_ping).await.unwrap();
+
+    let mut samples = vec![0u128; opt.samples.unwrap()];
+
+    let sleep = Duration::from_secs_f64(opt.interval);
+    let data: RBuf = vec![0u8; opt.payload].into();
+
+    for i in 0..opt.samples.unwrap() {
+        let now = Instant::now();
+        session
+            .write_ext(
+                &reskey_ping,
+                data.clone(),
+                encoding::DEFAULT,
+                data_kind::DEFAULT,
+                CongestionControl::Block, // Make sure to not drop messages because of congestion control
+            )
+            .wait()
+            .unwrap();
+
+        barrier.wait();
+        samples[i] = now.elapsed().as_micros();
+        task::sleep(sleep).await;
+    }
+
+    for i in 0..opt.samples.unwrap() {
+        println!(
+            "zenoh-net,{},latency.sequential.samples,{},{},{},{},{}",
+            opt.scenario, opt.name, opt.payload, opt.interval, i, samples[i]
+        );
     }
 }
 
@@ -215,7 +277,12 @@ async fn main() {
 
     if opt.parallel {
         parallel(opt, config).await;
-    } else {
-        single(opt, config).await;
+        return;
     }
+    if opt.samples.is_some() {
+        samples(opt, config).await;
+        return;
+    }
+
+    single(opt, config).await;
 }
