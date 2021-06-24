@@ -79,7 +79,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *me
 
 		pthread_cond_signal(&ping_info.cond);
 		pthread_mutex_unlock(&ping_info.lock);
-		
+
 	}
 	MQTTAsync_freeMessage(&message);
 	MQTTAsync_free(topicName);
@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 	char* scenario = NULL;
 	char* interveal_value = NULL;
 	struct timespec start, end;
-	u_int64_t seq_num = 0; 
+	u_int64_t seq_num = 0;
 
 
 
@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (interveal_value != NULL) {
-		interveal = (size_t) atof(interveal_value);
+		interveal = (float) atof(interveal_value);
 	}
 
 	data = (void*) calloc(sizeof(u_int8_t),payload);
@@ -226,11 +226,11 @@ int main(int argc, char* argv[])
 				received = 0;
 				u_int64_t elapsed = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
 
-				printf("mqtt,%s,latency,%s,%ld,%lu,%ld\n", scenario, name, payload, ping_info.seq_num,elapsed);
+				printf("mqtt,%s,latency,%s,%ld,%f,%lu,%ld\n", scenario, name, payload, interveal, ping_info.seq_num, elapsed);
 				fflush(stdout);
 				seq_num += 1;
 		}
-		
+
 	}
 
 
