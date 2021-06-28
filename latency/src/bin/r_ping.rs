@@ -21,7 +21,7 @@ use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
-use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::io::{WBuf, ZBuf};
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
 use zenoh::net::runtime::Runtime;
@@ -66,13 +66,19 @@ impl Primitives for LatencyPrimitivesParallel {
     ) {
     }
     fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
+    }
     fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     fn send_data(
         &self,
         _reskey: &ResKey,
-        mut payload: RBuf,
+        mut payload: ZBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
@@ -110,7 +116,7 @@ impl Primitives for LatencyPrimitivesParallel {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        _payload: ZBuf,
     ) {
     }
     fn send_reply_final(&self, _qid: ZInt) {}
@@ -149,13 +155,19 @@ impl Primitives for LatencyPrimitivesSequential {
     ) {
     }
     fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
+    }
     fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     fn send_data(
         &self,
         _reskey: &ResKey,
-        mut payload: RBuf,
+        mut payload: ZBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
@@ -185,7 +197,7 @@ impl Primitives for LatencyPrimitivesSequential {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        _payload: ZBuf,
     ) {
     }
     fn send_reply_final(&self, _qid: ZInt) {}
@@ -229,7 +241,7 @@ async fn parallel(opt: Opt, config: ConfigProperties) {
         opt.interval,
         pending.clone(),
     ));
-    let tx_primitives = runtime.read().router.new_primitives(rx_primitives);
+    let tx_primitives = runtime.router.new_primitives(rx_primitives);
 
     let rid = ResKey::RName("/test/pong".to_string());
     let sub_info = SubInfo {
@@ -248,7 +260,7 @@ async fn parallel(opt: Opt, config: ConfigProperties) {
         let count_bytes: [u8; 8] = count.to_le_bytes();
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
 
         // Insert the pending ping
         pending.lock().unwrap().insert(count, Instant::now());
@@ -272,7 +284,7 @@ async fn single(opt: Opt, config: ConfigProperties) {
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let rx_primitives = Arc::new(LatencyPrimitivesSequential::new(pending.clone()));
-    let tx_primitives = runtime.read().router.new_primitives(rx_primitives);
+    let tx_primitives = runtime.router.new_primitives(rx_primitives);
 
     let rid = ResKey::RName("/test/pong".to_string());
     let sub_info = SubInfo {
@@ -291,7 +303,7 @@ async fn single(opt: Opt, config: ConfigProperties) {
         let count_bytes: [u8; 8] = count.to_le_bytes();
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
 
         // Insert the pending ping
         let barrier = Arc::new(Barrier::new(2));

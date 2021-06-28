@@ -17,7 +17,7 @@ use rand::RngCore;
 use std::any::Any;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Query, ReplyContext, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
@@ -63,10 +63,9 @@ impl SessionEventHandler for MyMH {
                 let congestion_control = CongestionControl::Block;
                 let key = ResKey::RName("/test/query".to_string());
                 let info = None;
-                let payload = RBuf::from(vec![0u8; self.payload]);
+                let payload = ZBuf::from(vec![0u8; self.payload]);
                 let routing_context = None;
                 let reply_context = Some(ReplyContext {
-                    is_final: true,
                     qid,
                     source_kind: 0,
                     replier_id: None,

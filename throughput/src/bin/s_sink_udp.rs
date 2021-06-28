@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
-use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::io::{WBuf, ZBuf, ZSlice};
 use zenoh::net::protocol::proto::{OpenSyn, SessionBody, SessionMessage};
 
 macro_rules! zsend {
@@ -40,8 +40,8 @@ macro_rules! zsend {
 macro_rules! zrecv {
     ($socket:expr, $buffer:expr) => {{
         let (n, addr) = $socket.recv_from(&mut $buffer).await.unwrap();
-        let mut rbuf = RBuf::from(&$buffer[..n]);
-        (rbuf.read_session_message().unwrap(), addr)
+        let mut zbuf = ZBuf::from(&$buffer[..n]);
+        (zbuf.read_session_message().unwrap(), addr)
     }};
 }
 
@@ -56,11 +56,11 @@ async fn handle_client(socket: Arc<UdpSocket>) -> Result<(), Box<dyn std::error:
 
     // Read the InitSyn
     let (message, addr) = zrecv!(socket, buffer);
-    match message.get_body() {
+    match &message.body {
         SessionBody::InitSyn { .. } => {
             let whatami = my_whatami;
             let sn_resolution = None;
-            let cookie = RBuf::from(vec![0u8; 8]);
+            let cookie = ZSlice::from(vec![0u8; 8]);
             let attachment = None;
             let message = SessionMessage::make_init_ack(
                 whatami,
@@ -80,7 +80,7 @@ async fn handle_client(socket: Arc<UdpSocket>) -> Result<(), Box<dyn std::error:
     if a != addr {
         panic!("Received data from {}, expected from {}", a, addr);
     }
-    match message.get_body() {
+    match &message.body {
         SessionBody::OpenSyn(OpenSyn {
             lease, initial_sn, ..
         }) => {

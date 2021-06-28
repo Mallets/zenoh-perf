@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
@@ -174,7 +174,7 @@ async fn main() {
     let congestion_control = CongestionControl::Block;
     let key = ResKey::RName("test".to_string());
     let info = None;
-    let payload = RBuf::from(vec![0u8; opt.payload]);
+    let payload = ZBuf::from(vec![0u8; opt.payload]);
     let reply_context = None;
     let routing_context = None;
     let attachment = None;

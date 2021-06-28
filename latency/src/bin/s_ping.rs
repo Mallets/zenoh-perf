@@ -21,7 +21,7 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     whatami, CongestionControl, PeerId, Reliability, ResKey, WhatAmI,
 };
-use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::io::{WBuf, ZBuf};
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Data, ZenohBody, ZenohMessage};
 use zenoh::net::protocol::session::{
@@ -224,7 +224,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         let count_bytes: [u8; 8] = count.to_le_bytes();
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
         let routing_context = None;
         let reply_context = None;
         let attachment = None;
@@ -294,7 +294,7 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         let count_bytes: [u8; 8] = count.to_le_bytes();
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
         let routing_context = None;
         let reply_context = None;
         let attachment = None;

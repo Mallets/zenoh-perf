@@ -21,7 +21,7 @@ use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
 use zenoh::net::runtime::Runtime;
@@ -70,7 +70,7 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {
+    fn decl_queryable(&self, _reskey: &ResKey, _kind: ZInt, _routing_context: Option<RoutingContext>) {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -81,7 +81,7 @@ impl Primitives for ThroughputPrimitives {
     fn send_data(
         &self,
         _reskey: &ResKey,
-        _payload: RBuf,
+        _payload: ZBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
@@ -109,7 +109,7 @@ impl Primitives for ThroughputPrimitives {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        _payload: ZBuf,
     ) {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
@@ -185,7 +185,7 @@ async fn main() {
     let my_primitives = Arc::new(ThroughputPrimitives::new(count.clone()));
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let primitives = runtime.read().router.new_primitives(my_primitives);
+    let primitives = runtime.router.new_primitives(my_primitives);
 
     primitives.decl_resource(1, &"/test/thr".to_string().into());
 
