@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
-use zenoh::net::protocol::io::{RBuf, WBuf};
+use zenoh::net::protocol::io::{WBuf, ZBuf, ZSlice};
 use zenoh::net::protocol::proto::{OpenSyn, SessionBody, SessionMessage};
 
 macro_rules! zsend {
@@ -54,8 +54,8 @@ macro_rules! zrecv {
         // Decode the total amount of bytes that we are expected to read
         let to_read = u16::from_le_bytes(length) as usize;
         $stream.read_exact(&mut $buffer[0..to_read]).await.unwrap();
-        let mut rbuf = RBuf::from(&$buffer[..]);
-        rbuf.read_session_message().unwrap()
+        let mut zbuf = ZBuf::from(&$buffer[..]);
+        zbuf.read_session_message().unwrap()
     }};
 }
 
@@ -70,11 +70,11 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
     // Read the InitSyn
     let message = zrecv!(stream, buffer);
-    match message.get_body() {
+    match &message.body {
         SessionBody::InitSyn { .. } => {
             let whatami = my_whatami;
             let sn_resolution = None;
-            let cookie = RBuf::from(vec![0u8; 8]);
+            let cookie = ZSlice::from(vec![0u8; 8]);
             let attachment = None;
             let message = SessionMessage::make_init_ack(
                 whatami,
@@ -91,7 +91,7 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 
     // Read the OpenSyn
     let message = zrecv!(stream, buffer);
-    match message.get_body() {
+    match &message.body {
         SessionBody::OpenSyn(OpenSyn {
             lease, initial_sn, ..
         }) => {
@@ -122,13 +122,13 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
         loop {
             task::sleep(Duration::from_secs(1)).await;
             let message = SessionMessage::make_keep_alive(None, None);
-            let _ = zsend!(message, c_stream).unwrap();
+            let _ = zsend!(message, c_stream);
         }
     });
 
     // Read from the socket
     loop {
-        let n = stream.read(&mut buffer).await.unwrap();
+        let n = stream.read(&mut buffer).await?;
         let _ = counter.fetch_add(n, Ordering::Relaxed);
     }
 }

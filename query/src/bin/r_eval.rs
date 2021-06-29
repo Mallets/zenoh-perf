@@ -19,9 +19,10 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
 };
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
+use zenoh::net::queryable::ALL_KINDS;
 use zenoh::net::routing::face::Face;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
@@ -62,13 +63,19 @@ impl Primitives for EvalPrimitives {
     ) {
     }
     fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
+    }
     fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     fn send_data(
         &self,
         _reskey: &ResKey,
-        _payload: RBuf,
+        _payload: ZBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
@@ -88,7 +95,7 @@ impl Primitives for EvalPrimitives {
         let source_kind = 0;
         let pid = self.pid.clone();
         let info = None;
-        let payload = RBuf::from(vec![0u8; self.payload]);
+        let payload = ZBuf::from(vec![0u8; self.payload]);
         let tx_primitives = self.tx.lock().unwrap().as_ref().unwrap().clone();
 
         // @TODO: once the router is re-entrant remove the task spawn
@@ -104,7 +111,7 @@ impl Primitives for EvalPrimitives {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        _payload: ZBuf,
     ) {
     }
     fn send_reply_final(&self, _qid: ZInt) {}
@@ -160,12 +167,13 @@ async fn main() {
     let pid = PeerId::new(1, pid);
 
     let rx_primitives = Arc::new(EvalPrimitives::new(pid, opt.payload));
-    let tx_primitives = runtime.read().router.new_primitives(rx_primitives.clone());
+    let tx_primitives = runtime.router.new_primitives(rx_primitives.clone());
     rx_primitives.set_tx(tx_primitives.clone());
 
     let rid = ResKey::RName("/test/query".to_string());
+    let kind = ALL_KINDS;
     let routing_context = None;
-    tx_primitives.decl_queryable(&rid, routing_context);
+    tx_primitives.decl_queryable(&rid, kind, routing_context);
 
     // Stop forever
     future::pending::<()>().await;

@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
-use zenoh::net::RBuf;
+use zenoh::net::ZBuf;
 use zenoh::Properties;
 use zenoh::*;
 
@@ -64,7 +64,7 @@ async fn main() {
         config.insert("peer".to_string(), opt.peer.unwrap());
     }
 
-    let data: RBuf = (0usize..opt.payload)
+    let data: ZBuf = (0usize..opt.payload)
         .map(|i| (i % 10) as u8)
         .collect::<Vec<u8>>()
         .into();

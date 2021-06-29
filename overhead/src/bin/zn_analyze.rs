@@ -18,7 +18,7 @@ use structopt::StructOpt;
 use async_std::fs;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{
     FramePayload, SessionBody, SessionMessage, ZenohBody, ZenohMessage,
 };
@@ -73,10 +73,10 @@ fn read_session_messages(mut data: &[u8]) -> Vec<SessionMessage> {
                 let mut buffer = vec![0u8; to_read];
                 let _ = data.read_exact(&mut buffer).unwrap();
 
-                let mut rbuf = RBuf::from(buffer);
+                let mut zbuf = ZBuf::from(buffer);
 
-                while rbuf.can_read() {
-                    match rbuf.read_session_message() {
+                while zbuf.can_read() {
+                    match zbuf.read_session_message() {
                         Some(msg) => messages.push(msg),
                         None => (),
                     }
@@ -92,7 +92,7 @@ fn read_session_messages(mut data: &[u8]) -> Vec<SessionMessage> {
 fn read_zenoh_messages(data: Vec<SessionMessage>) -> Vec<ZenohMessage> {
     let mut messages = vec![];
     for m in data.iter() {
-        match m.get_body() {
+        match &m.body {
             SessionBody::Frame(f) => match &f.payload {
                 FramePayload::Messages { messages: msgs } => messages.extend_from_slice(&msgs),
                 _ => (),

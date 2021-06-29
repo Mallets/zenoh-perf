@@ -18,7 +18,7 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
 };
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
 use zenoh::net::runtime::Runtime;
@@ -57,13 +57,19 @@ impl Primitives for QueryPrimitives {
     ) {
     }
     fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
+    }
     fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     fn send_data(
         &self,
         _reskey: &ResKey,
-        _payload: RBuf,
+        _payload: ZBuf,
         _reliability: Reliability,
         _congestion_control: CongestionControl,
         _data_info: Option<DataInfo>,
@@ -87,7 +93,7 @@ impl Primitives for QueryPrimitives {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        payload: RBuf,
+        payload: ZBuf,
     ) {
         let tuple = self.pending.lock().unwrap().remove(&qid).unwrap();
         let (instant, barrier) = (tuple.0, tuple.1);
@@ -152,7 +158,7 @@ async fn main() {
         opt.name,
         pending.clone(),
     ));
-    let tx_primitives = runtime.read().router.new_primitives(rx_primitives);
+    let tx_primitives = runtime.router.new_primitives(rx_primitives);
 
     let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;

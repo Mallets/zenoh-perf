@@ -68,7 +68,7 @@ async fn main() {
         .unwrap());
     let _publ = session.declare_publisher(&reskey).await.unwrap();
 
-    let data: RBuf = (0usize..opt.payload)
+    let data: ZBuf = (0usize..opt.payload)
         .map(|i| (i % 10) as u8)
         .collect::<Vec<u8>>()
         .into();

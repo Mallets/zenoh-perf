@@ -74,7 +74,7 @@ async fn single(opt: Opt, config: Properties) {
         let count_bytes: [u8; 8] = count.to_le_bytes();
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
 
         let now = Instant::now();
         session
@@ -177,7 +177,7 @@ async fn parallel(opt: Opt, config: Properties) {
         data.write_bytes(&count_bytes);
         data.write_bytes(&payload);
 
-        let data: RBuf = data.into();
+        let data: ZBuf = data.into();
 
         pending.lock().unwrap().insert(count, Instant::now());
         session
@@ -229,7 +229,7 @@ async fn samples(opt: Opt, config: Properties) {
     let mut samples = vec![0u128; opt.samples.unwrap()];
 
     let sleep = Duration::from_secs_f64(opt.interval);
-    let data: RBuf = vec![0u8; opt.payload].into();
+    let data: ZBuf = vec![0u8; opt.payload].into();
 
     for i in 0..opt.samples.unwrap() {
         let now = Instant::now();

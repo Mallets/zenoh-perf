@@ -18,7 +18,7 @@ use zenoh::net::protocol::core::{
     CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
 use zenoh::net::protocol::session::Primitives;
 use zenoh::net::routing::face::Face;
@@ -57,13 +57,19 @@ impl Primitives for LatencyPrimitives {
     ) {
     }
     fn forget_subscriber(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
-    fn decl_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
+    }
     fn forget_queryable(&self, _reskey: &ResKey, _routing_context: Option<RoutingContext>) {}
 
     fn send_data(
         &self,
         _reskey: &ResKey,
-        payload: RBuf,
+        payload: ZBuf,
         reliability: Reliability,
         congestion_control: CongestionControl,
         data_info: Option<DataInfo>,
@@ -97,7 +103,7 @@ impl Primitives for LatencyPrimitives {
         _replier_id: PeerId,
         _reskey: ResKey,
         _info: Option<DataInfo>,
-        _payload: RBuf,
+        _payload: ZBuf,
     ) {
     }
     fn send_reply_final(&self, _qid: ZInt) {}
@@ -147,7 +153,7 @@ async fn main() {
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let rx_primitives = Arc::new(LatencyPrimitives::new());
-    let tx_primitives = runtime.read().router.new_primitives(rx_primitives.clone());
+    let tx_primitives = runtime.router.new_primitives(rx_primitives.clone());
     rx_primitives.set_tx(tx_primitives.clone());
 
     let rid = ResKey::RName("/test/ping".to_string());

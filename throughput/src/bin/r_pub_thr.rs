@@ -18,12 +18,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{CongestionControl, Reliability, ResKey};
-use zenoh::net::protocol::io::RBuf;
+use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::session::DummyPrimitives;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
+ use zenoh::net::protocol::session::Primitives;
 use zenoh_util::properties::{IntKeyProperties, Properties};
 
 #[derive(Debug, StructOpt)]
@@ -72,7 +73,7 @@ async fn main() {
     let my_primitives = Arc::new(DummyPrimitives::new());
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
-    let primitives = runtime.read().router.new_primitives(my_primitives);
+    let primitives = runtime.router.new_primitives(my_primitives);
 
     primitives.decl_resource(1, &"/test/thr".to_string().into());
     let rid = ResKey::RId(1);
@@ -82,7 +83,7 @@ async fn main() {
     // Wait for the declare to arrive
     task::sleep(Duration::from_millis(1_000)).await;
 
-    let payload = RBuf::from(vec![0u8; opt.payload]);
+    let payload = ZBuf::from(vec![0u8; opt.payload]);
     if opt.print {
         let count = Arc::new(AtomicUsize::new(0));
         let c_count = count.clone();
