@@ -20,11 +20,11 @@ use structopt::StructOpt;
 use zenoh::net::protocol::core::{CongestionControl, Reliability, ResKey};
 use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::session::DummyPrimitives;
+use zenoh::net::protocol::session::Primitives;
 use zenoh::net::runtime::Runtime;
 use zenoh_util::properties::config::{
     ConfigProperties, ZN_ADD_TIMESTAMP_KEY, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
- use zenoh::net::protocol::session::Primitives;
 use zenoh_util::properties::{IntKeyProperties, Properties};
 
 #[derive(Debug, StructOpt)]

@@ -70,7 +70,12 @@ impl Primitives for ThroughputPrimitives {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn decl_queryable(&self, _reskey: &ResKey, _kind: ZInt, _routing_context: Option<RoutingContext>) {
+    fn decl_queryable(
+        &self,
+        _reskey: &ResKey,
+        _kind: ZInt,
+        _routing_context: Option<RoutingContext>,
+    ) {
         self.count.fetch_add(1, Ordering::Relaxed);
     }
 
