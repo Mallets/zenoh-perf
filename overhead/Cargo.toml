@@ -43,10 +43,8 @@ hex = "0.4"
 serde_derive = "1.0.55"
 serde = { version = "1.0.55", features = ["derive"] }
 serde_json = { version = "1.0.55"}
-#zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
-#zenoh-util = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
-zenoh = { path = "../../mallets-zenoh/zenoh" }
-zenoh-util = { path = "../../mallets-zenoh/zenoh-util" }
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
+zenoh-util = { git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "master" }
 
 
 [[bin]]
