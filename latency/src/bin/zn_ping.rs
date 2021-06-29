@@ -249,10 +249,11 @@ async fn samples(opt: Opt, config: Properties) {
         task::sleep(sleep).await;
     }
 
-    for i in 0..opt.samples.unwrap() {
+    let num = opt.samples.unwrap();
+    for (i, s) in samples.iter().enumerate().take(num) {
         println!(
             "zenoh-net,{},latency.sequential.samples,{},{},{},{},{}",
-            opt.scenario, opt.name, opt.payload, opt.interval, i, samples[i]
+            opt.scenario, opt.name, opt.payload, opt.interval, i, s
         );
     }
 }

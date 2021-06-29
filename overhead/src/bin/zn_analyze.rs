@@ -65,24 +65,18 @@ pub struct PcapLayers {
 fn read_session_messages(mut data: &[u8]) -> Vec<SessionMessage> {
     let mut messages: Vec<SessionMessage> = Vec::with_capacity(1);
     let mut length_bytes = [0u8; 2];
-    loop {
-        match data.read_exact(&mut length_bytes) {
-            Ok(_) => {
-                let to_read = u16::from_le_bytes(length_bytes) as usize;
-                // Read the message
-                let mut buffer = vec![0u8; to_read];
-                let _ = data.read_exact(&mut buffer).unwrap();
+    while data.read_exact(&mut length_bytes).is_ok() {
+        let to_read = u16::from_le_bytes(length_bytes) as usize;
+        // Read the message
+        let mut buffer = vec![0u8; to_read];
+        let _ = data.read_exact(&mut buffer).unwrap();
 
-                let mut zbuf = ZBuf::from(buffer);
+        let mut zbuf = ZBuf::from(buffer);
 
-                while zbuf.can_read() {
-                    match zbuf.read_session_message() {
-                        Some(msg) => messages.push(msg),
-                        None => (),
-                    }
-                }
+        while zbuf.can_read() {
+            if let Some(msg) = zbuf.read_session_message() {
+                messages.push(msg)
             }
-            Err(_) => break,
         }
     }
 
@@ -92,12 +86,10 @@ fn read_session_messages(mut data: &[u8]) -> Vec<SessionMessage> {
 fn read_zenoh_messages(data: Vec<SessionMessage>) -> Vec<ZenohMessage> {
     let mut messages = vec![];
     for m in data.iter() {
-        match &m.body {
-            SessionBody::Frame(f) => match &f.payload {
-                FramePayload::Messages { messages: msgs } => messages.extend_from_slice(&msgs),
-                _ => (),
-            },
-            _ => (),
+        if let SessionBody::Frame(f) = &m.body {
+            if let FramePayload::Messages { messages: msgs } = &f.payload {
+                messages.extend_from_slice(&msgs);
+            }
         }
     }
     messages
@@ -138,12 +130,9 @@ async fn main() {
     println!("Total Zenoh Messages: {}", zenoh_messages.len());
 
     for m in zenoh_messages.iter() {
-        match &m.body {
-            ZenohBody::Data(d) => {
-                data_count += 1;
-                payload_size += d.payload.len();
-            }
-            _ => (),
+        if let ZenohBody::Data(d) = &m.body {
+            data_count += 1;
+            payload_size += d.payload.len();
         }
     }
 

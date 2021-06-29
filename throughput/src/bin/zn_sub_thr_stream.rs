@@ -107,7 +107,7 @@ async fn main() {
         .await
         .unwrap();
 
-    while let Ok(_) = sub.receiver().recv() {
+    while sub.receiver().recv().is_ok() {
         messages.fetch_add(1, Ordering::Relaxed);
     }
 }
