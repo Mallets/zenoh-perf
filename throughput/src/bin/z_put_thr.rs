@@ -56,7 +56,7 @@ async fn main() {
     config.insert("add_timestamp".to_string(), "false".to_string());
 
     config.insert("multicast_scouting".to_string(), "false".to_string());
-    config.insert("locator".to_string(), opt.locator);
+    config.insert("peer".to_string(), opt.locator);
 
     let data: ZBuf = (0usize..opt.payload)
         .map(|i| (i % 10) as u8)
