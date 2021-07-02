@@ -45,8 +45,8 @@ impl SessionHandler for MySH {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "z_ping")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Locator,
+    #[structopt(short = "l", long = "locator")]
+    locator: Locator,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "p", long = "payload")]
@@ -64,7 +64,7 @@ async fn main() {
     let opt = Opt::from_args();
 
     let whatami = match opt.mode.as_str() {
-        "peer" => whatami::PEER,
+        "locator" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };
@@ -83,7 +83,7 @@ async fn main() {
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.locator).await.unwrap();
 
     let mut count: u64 = 0;
     loop {

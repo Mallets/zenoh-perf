@@ -134,13 +134,13 @@ async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_sink_udp")]
 struct Opt {
-    #[structopt(short = "l", long = "listener")]
-    listener: SocketAddr,
+    #[structopt(short = "l", long = "locator")]
+    locator: SocketAddr,
 }
 
 #[async_std::main]
 async fn main() {
     env_logger::init();
     let opt = Opt::from_args();
-    let _ = run(opt.listener).await;
+    let _ = run(opt.locator).await;
 }

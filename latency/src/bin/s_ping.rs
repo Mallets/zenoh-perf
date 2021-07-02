@@ -29,7 +29,7 @@ use zenoh::net::protocol::session::{
 };
 use zenoh_util::core::ZResult;
 
-// Session Handler for the non-blocking peer
+// Session Handler for the non-blocking locator
 struct MySHParallel {
     scenario: String,
     name: String,
@@ -67,7 +67,7 @@ impl SessionHandler for MySHParallel {
     }
 }
 
-// Message Handler for the peer
+// Message Handler for the locator
 struct MyMHParallel {
     scenario: String,
     name: String,
@@ -123,7 +123,7 @@ impl SessionEventHandler for MyMHParallel {
     }
 }
 
-// Session Handler for the blocking peer
+// Session Handler for the blocking locator
 struct MySHSequential {
     pending: Arc<Mutex<HashMap<u64, Arc<Barrier>>>>,
 }
@@ -143,7 +143,7 @@ impl SessionHandler for MySHSequential {
     }
 }
 
-// Message Handler for the peer
+// Message Handler for the locator
 struct MyMHSequential {
     pending: Arc<Mutex<HashMap<u64, Arc<Barrier>>>>,
 }
@@ -181,8 +181,8 @@ impl SessionEventHandler for MyMHSequential {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_sub_thr")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Locator,
+    #[structopt(short = "l", long = "locator")]
+    locator: Locator,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "p", long = "payload")]
@@ -208,7 +208,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.locator).await.unwrap();
 
     let sleep = Duration::from_secs_f64(opt.interval);
     let payload = vec![0u8; opt.payload - 8];
@@ -278,7 +278,7 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.locator).await.unwrap();
 
     let sleep = Duration::from_secs_f64(opt.interval);
     let payload = vec![0u8; opt.payload - 8];
@@ -329,7 +329,7 @@ async fn main() {
     let opt = Opt::from_args();
 
     let whatami = match opt.mode.as_str() {
-        "peer" => whatami::PEER,
+        "locator" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };

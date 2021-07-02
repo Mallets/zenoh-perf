@@ -36,7 +36,7 @@
 int main(int argc, char *argv[])
 {
     char *payload_value = NULL;
-    const char *peer = NULL;
+    const char *locator = NULL;
     void *ctx = NULL;
     void *s = NULL;
     int rc = 0;
@@ -53,17 +53,17 @@ int main(int argc, char *argv[])
         case 'p':
             payload_value = optarg;
             break;
-        case 'e':
-            peer = optarg;
+        case 'l':
+            locator = optarg;
             break;
         default:
             break;
         }
     }
 
-    if (peer == NULL || payload_value == NULL)
+    if (locator == NULL || payload_value == NULL)
     {
-        printf("Usage:\n\t./zmq_pub_thr -e tcp://127.0.0.1:4505 -p 8\n");
+        printf("Usage:\n\t./zmq_pub_thr -l tcp://127.0.0.1:4505 -p 8\n");
         exit(EXIT_FAILURE);
     }
     payload = atoi(payload_value);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    rc = zmq_connect(s, peer);
+    rc = zmq_connect(s, locator);
     if (rc != 0)
     {
         printf("error in zmq_connect: %s\n", zmq_strerror(errno));

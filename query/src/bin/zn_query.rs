@@ -21,8 +21,8 @@ use zenoh::Properties;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "zn_query")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Option<String>,
+    #[structopt(short = "l", long = "locator")]
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "n", long = "name")]
@@ -42,12 +42,8 @@ async fn main() {
     let mut config = Properties::default();
     config.insert("mode".to_string(), opt.mode.clone());
 
-    if opt.peer.is_none() {
-        config.insert("multicast_scouting".to_string(), "true".to_string());
-    } else {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap());
-    }
+    config.insert("multicast_scouting".to_string(), "false".to_string());
+    config.insert("locator".to_string(), opt.locator);
 
     let session = open(config.into()).await.unwrap();
 

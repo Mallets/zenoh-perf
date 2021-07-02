@@ -25,11 +25,9 @@ use zenoh::Properties;
 #[structopt(name = "zn_sub_thr")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
-    locator: Option<String>,
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "u", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "n", long = "name")]
@@ -57,16 +55,12 @@ async fn main() {
     };
     config.insert("mode".to_string(), opt.mode.clone());
 
-    if opt.scout {
-        config.insert("multicast_scouting".to_string(), "true".to_string());
-    } else {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
-        match opt.mode.as_str() {
-            "peer" => config.insert("listener".to_string(), opt.locator.unwrap()),
-            "client" => config.insert("peer".to_string(), opt.locator.unwrap()),
-            _ => panic!("Unsupported mode: {}", opt.mode),
-        };
-    }
+    config.insert("multicast_scouting".to_string(), "false".to_string());
+    match opt.mode.as_str() {
+        "peer" => config.insert("listener".to_string(), opt.locator),
+        "client" => config.insert("peer".to_string(), opt.locator),
+        _ => panic!("Unsupported mode: {}", opt.mode),
+    };
 
     let session = open(config.into()).await.unwrap();
 

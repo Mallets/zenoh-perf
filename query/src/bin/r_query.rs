@@ -122,8 +122,8 @@ impl Primitives for QueryPrimitives {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "r_query")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Option<String>,
+    #[structopt(short = "l", long = "locator")]
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "n", long = "name")]
@@ -143,12 +143,8 @@ async fn main() {
     let mut config = ConfigProperties::default();
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
-    if opt.peer.is_none() {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
-    } else {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        config.insert(ZN_PEER_KEY, opt.peer.unwrap());
-    }
+    config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
+    config.insert(ZN_PEER_KEY, opt.locator);
 
     let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
 

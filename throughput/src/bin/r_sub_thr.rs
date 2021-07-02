@@ -142,11 +142,9 @@ impl Primitives for ThroughputPrimitives {
 #[structopt(name = "r_sub_thr")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
-    locator: Option<String>,
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "u", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "n", long = "name")]
@@ -175,15 +173,17 @@ async fn main() {
     };
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
-    if opt.scout {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
-    } else {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        match opt.mode.as_str() {
-            "peer" | "router" => config.insert(ZN_LISTENER_KEY, opt.locator.unwrap()),
-            "client" => config.insert(ZN_PEER_KEY, opt.locator.unwrap()),
-            _ => panic!("Unsupported mode: {}", opt.mode),
-        };
+    config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
+    match opt.mode.as_str() {
+        "peer" | "router" => {
+            config.insert(ZN_LISTENER_KEY, opt.locator);
+        }
+        "client" => {
+            config.insert(ZN_PEER_KEY, opt.locator);
+        }
+        _ => {
+            panic!("Unsupported mode: {}", opt.mode);
+        }
     }
 
     let count = Arc::new(AtomicUsize::new(0));

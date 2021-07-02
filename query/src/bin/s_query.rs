@@ -27,7 +27,7 @@ use zenoh_util::core::ZResult;
 
 type Pending = Arc<Mutex<HashMap<u64, (Instant, Arc<Barrier>)>>>;
 
-// Session Handler for the blocking peer
+// Session Handler for the blocking locator
 struct MySH {
     scenario: String,
     name: String,
@@ -57,7 +57,7 @@ impl SessionHandler for MySH {
     }
 }
 
-// Message Handler for the peer
+// Message Handler for the locator
 struct MyMH {
     scenario: String,
     name: String,
@@ -113,8 +113,8 @@ impl SessionEventHandler for MyMH {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_query")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Locator,
+    #[structopt(short = "l", long = "locator")]
+    locator: Locator,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "n", long = "name")]
@@ -132,7 +132,7 @@ async fn main() {
     let opt = Opt::from_args();
 
     let whatami = match opt.mode.as_str() {
-        "peer" => whatami::PEER,
+        "locator" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };
@@ -156,7 +156,7 @@ async fn main() {
     let manager = SessionManager::new(config, None);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.locator).await.unwrap();
     let barrier = Arc::new(Barrier::new(2));
     let mut count: u64 = 0;
     loop {

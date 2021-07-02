@@ -134,8 +134,8 @@ async fn handle_client(mut stream: TcpStream) -> Result<(), Box<dyn std::error::
 }
 
 async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
-    let listener = TcpListener::bind(addr).await?;
-    let mut incoming = listener.incoming();
+    let locator = TcpListener::bind(addr).await?;
+    let mut incoming = locator.incoming();
 
     while let Some(stream) = incoming.next().await {
         let stream = stream?;
@@ -150,13 +150,13 @@ async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_sink_tcp")]
 struct Opt {
-    #[structopt(short = "l", long = "listener")]
-    listener: SocketAddr,
+    #[structopt(short = "l", long = "locator")]
+    locator: SocketAddr,
 }
 
 #[async_std::main]
 async fn main() {
     env_logger::init();
     let opt = Opt::from_args();
-    let _ = run(opt.listener).await;
+    let _ = run(opt.locator).await;
 }

@@ -102,8 +102,8 @@ impl SessionEventHandler for MyMH {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_pubsub_thr")]
 struct Opt {
-    #[structopt(short = "l", long = "listener")]
-    listener: Locator,
+    #[structopt(short = "l", long = "locator")]
+    locator: Locator,
     #[structopt(short = "e", long = "peer")]
     peer: Locator,
     #[structopt(short = "m", long = "mode")]
@@ -160,7 +160,7 @@ async fn main() {
     let manager = SessionManager::new(config, opt_config);
 
     // Connect to publisher
-    let _ = manager.add_listener(&opt.listener).await.unwrap();
+    let _ = manager.add_listener(&opt.locator).await.unwrap();
 
     let session = loop {
         match manager.open_session(&opt.peer).await {

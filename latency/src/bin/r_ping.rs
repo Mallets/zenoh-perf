@@ -29,7 +29,7 @@ use zenoh_util::properties::config::{
     ConfigProperties, ZN_MODE_KEY, ZN_MULTICAST_SCOUTING_KEY, ZN_PEER_KEY,
 };
 
-// Primitives for the non-blocking peer
+// Primitives for the non-blocking locator
 struct LatencyPrimitivesParallel {
     scenario: String,
     name: String,
@@ -131,7 +131,7 @@ impl Primitives for LatencyPrimitivesParallel {
     fn send_close(&self) {}
 }
 
-// Primitives for the blocking peer
+// Primitives for the blocking locator
 struct LatencyPrimitivesSequential {
     pending: Arc<Mutex<HashMap<u64, Arc<Barrier>>>>,
 }
@@ -215,8 +215,8 @@ impl Primitives for LatencyPrimitivesSequential {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "r_pub_thr")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Option<String>,
+    #[structopt(short = "l", long = "locator")]
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "p", long = "payload")]
@@ -345,12 +345,8 @@ async fn main() {
     let mut config = ConfigProperties::default();
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
-    if opt.peer.is_none() {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
-    } else {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        config.insert(ZN_PEER_KEY, opt.peer.clone().unwrap());
-    }
+    config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
+    config.insert(ZN_PEER_KEY, opt.locator.clone());
 
     if opt.parallel {
         parallel(opt, config).await;

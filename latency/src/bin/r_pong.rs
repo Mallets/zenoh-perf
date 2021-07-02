@@ -122,11 +122,9 @@ impl Primitives for LatencyPrimitives {
 #[structopt(name = "r_sub_thr")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
-    locator: Option<String>,
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "u", long = "scout")]
-    scout: bool,
 }
 
 #[async_std::main]
@@ -140,16 +138,12 @@ async fn main() {
     let mut config = ConfigProperties::default();
     config.insert(ZN_MODE_KEY, opt.mode.clone());
 
-    if opt.scout {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
-    } else {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        match opt.mode.as_str() {
-            "peer" | "router" => config.insert(ZN_LISTENER_KEY, opt.locator.unwrap()),
-            "client" => config.insert(ZN_PEER_KEY, opt.locator.unwrap()),
-            _ => panic!("Unsupported mode: {}", opt.mode),
-        };
-    }
+    config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
+    match opt.mode.as_str() {
+        "peer" | "router" => config.insert(ZN_LISTENER_KEY, opt.locator),
+        "client" => config.insert(ZN_PEER_KEY, opt.locator),
+        _ => panic!("Unsupported mode: {}", opt.mode),
+    };
 
     let runtime = Runtime::new(0u8, config, None).await.unwrap();
     let rx_primitives = Arc::new(LatencyPrimitives::new());

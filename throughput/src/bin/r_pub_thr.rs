@@ -30,12 +30,10 @@ use zenoh_util::properties::{IntKeyProperties, Properties};
 #[derive(Debug, StructOpt)]
 #[structopt(name = "r_pub_thr")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Option<String>,
+    #[structopt(short = "l", long = "locator")]
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "u", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "t", long = "print")]
@@ -63,12 +61,8 @@ async fn main() {
     config.insert(ZN_MODE_KEY, opt.mode.clone());
     config.insert(ZN_ADD_TIMESTAMP_KEY, "false".to_string());
 
-    if opt.scout {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "true".to_string());
-    } else {
-        config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
-        config.insert(ZN_PEER_KEY, opt.peer.unwrap());
-    }
+    config.insert(ZN_MULTICAST_SCOUTING_KEY, "false".to_string());
+    config.insert(ZN_PEER_KEY, opt.locator);
 
     let my_primitives = Arc::new(DummyPrimitives::new());
 

@@ -49,8 +49,8 @@ impl SessionHandler for MySH {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_pub_thr")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Locator,
+    #[structopt(short = "l", long = "locator")]
+    locator: Locator,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "p", long = "payload")]
@@ -75,7 +75,7 @@ async fn main() {
     let pid = PeerId::new(1, pid);
 
     let whatami = match opt.mode.as_str() {
-        "peer" => whatami::PEER,
+        "locator" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };
@@ -100,7 +100,7 @@ async fn main() {
     let manager = SessionManager::new(config, opt_config);
 
     // Connect to publisher
-    let session = manager.open_session(&opt.peer).await.unwrap();
+    let session = manager.open_session(&opt.locator).await.unwrap();
 
     // Send reliable messages
     let reliability = Reliability::Reliable;

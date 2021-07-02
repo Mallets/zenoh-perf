@@ -84,8 +84,8 @@ impl SessionEventHandler for MyMH {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "s_router_thr")]
 struct Opt {
-    #[structopt(short = "l", long = "listener")]
-    listener: Vec<Locator>,
+    #[structopt(short = "l", long = "locator")]
+    locator: Vec<Locator>,
     #[structopt(short = "c", long = "conf", parse(from_os_str))]
     config: Option<PathBuf>,
 }
@@ -121,7 +121,7 @@ async fn main() {
     let manager = SessionManager::new(config, opt_config);
 
     // Connect to publisher
-    for l in opt.listener.iter() {
+    for l in opt.locator.iter() {
         manager.add_listener(l).await.unwrap();
     }
     // Stop forever

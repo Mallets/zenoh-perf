@@ -25,12 +25,10 @@ use zenoh::*;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "z_put_thr")]
 struct Opt {
-    #[structopt(short = "e", long = "peer")]
-    peer: Option<String>,
+    #[structopt(short = "l", long = "locator")]
+    locator: String,
     #[structopt(short = "m", long = "mode")]
     mode: String,
-    #[structopt(short = "u", long = "scout")]
-    scout: bool,
     #[structopt(short = "p", long = "payload")]
     payload: usize,
     #[structopt(short = "t", long = "print")]
@@ -57,12 +55,8 @@ async fn main() {
     config.insert("mode".to_string(), opt.mode.clone());
     config.insert("add_timestamp".to_string(), "false".to_string());
 
-    if opt.scout {
-        config.insert("multicast_scouting".to_string(), "true".to_string());
-    } else {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
-        config.insert("peer".to_string(), opt.peer.unwrap());
-    }
+    config.insert("multicast_scouting".to_string(), "false".to_string());
+    config.insert("locator".to_string(), opt.locator);
 
     let data: ZBuf = (0usize..opt.payload)
         .map(|i| (i % 10) as u8)
