@@ -65,11 +65,7 @@ impl SessionEventHandler for MyMH {
                 let info = None;
                 let payload = ZBuf::from(vec![0u8; self.payload]);
                 let routing_context = None;
-                let reply_context = Some(ReplyContext {
-                    qid,
-                    source_kind: 0,
-                    replier_id: None,
-                });
+                let reply_context = Some(ReplyContext { qid, replier: None });
                 let attachment = None;
 
                 let message = ZenohMessage::make_data(

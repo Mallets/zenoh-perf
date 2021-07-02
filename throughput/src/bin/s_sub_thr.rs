@@ -116,7 +116,9 @@ impl SessionEventHandler for MyMH {
 #[structopt(name = "s_sub_thr")]
 struct Opt {
     #[structopt(short = "l", long = "locator")]
-    locator: Locator,
+    listener: Vec<Locator>,
+    #[structopt(short = "e", long = "peer")]
+    peer: Vec<Locator>,
     #[structopt(short = "m", long = "mode")]
     mode: String,
     #[structopt(short = "p", long = "payload")]
@@ -169,10 +171,14 @@ async fn main() {
     let manager = SessionManager::new(config, opt_config);
 
     // Connect to the peer or listen
-    if whatami == whatami::PEER {
-        manager.add_listener(&opt.locator).await.unwrap();
-    } else {
-        let _session = manager.open_session(&opt.locator).await.unwrap();
+    for l in opt.listener.iter() {
+        manager.add_listener(l).await.unwrap();
+    }
+
+    let mut ss = vec![];
+    for p in opt.peer.iter() {
+        let s = manager.open_session(p).await.unwrap();
+        ss.push(s);
     }
 
     // Stop forever
