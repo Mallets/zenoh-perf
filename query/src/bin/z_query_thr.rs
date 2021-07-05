@@ -47,7 +47,7 @@ async fn main() {
     config.insert("mode".to_string(), opt.mode.clone());
 
     config.insert("multicast_scouting".to_string(), "false".to_string());
-    config.insert("locator".to_string(), opt.locator.clone());
+    config.insert("peer".to_string(), opt.locator.clone());
 
     let zenoh = Zenoh::new(config.into()).await.unwrap();
     let workspace = zenoh.workspace(None).await.unwrap();

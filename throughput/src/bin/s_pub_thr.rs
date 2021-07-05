@@ -75,7 +75,7 @@ async fn main() {
     let pid = PeerId::new(1, pid);
 
     let whatami = match opt.mode.as_str() {
-        "locator" => whatami::PEER,
+        "peer" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };

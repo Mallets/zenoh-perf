@@ -64,7 +64,7 @@ async fn main() {
     let opt = Opt::from_args();
 
     let whatami = match opt.mode.as_str() {
-        "locator" => whatami::PEER,
+        "peer" => whatami::PEER,
         "client" => whatami::CLIENT,
         _ => panic!("Unsupported mode: {}", opt.mode),
     };
