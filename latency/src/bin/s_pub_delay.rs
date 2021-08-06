@@ -16,7 +16,9 @@ use async_std::task;
 use rand::RngCore;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use structopt::StructOpt;
-use zenoh::net::protocol::core::{whatami, CongestionControl, PeerId, Reliability, ResKey};
+use zenoh::net::protocol::core::{
+    whatami, CongestionControl, PeerId, Reliability, ResKey, Service,
+};
 use zenoh::net::protocol::link::Locator;
 use zenoh::net::protocol::proto::ZenohMessage;
 use zenoh::net::protocol::session::{
@@ -88,6 +90,7 @@ async fn main() {
     let mut count: u64 = 0;
     loop {
         // Send reliable messages
+        let service = Service::default();
         let reliability = Reliability::Reliable;
         let congestion_control = CongestionControl::Block;
         let key = ResKey::RName("/test/ping".to_string());
@@ -111,6 +114,7 @@ async fn main() {
         let message = ZenohMessage::make_data(
             key,
             payload.into(),
+            service,
             reliability,
             congestion_control,
             info,

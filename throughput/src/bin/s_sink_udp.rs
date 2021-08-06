@@ -20,7 +20,7 @@ use std::time::Duration;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{whatami, PeerId};
 use zenoh::net::protocol::io::{WBuf, ZBuf, ZSlice};
-use zenoh::net::protocol::proto::{OpenSyn, SessionBody, SessionMessage};
+use zenoh::net::protocol::proto::{InitSyn, OpenSyn, SessionBody, SessionMessage};
 
 macro_rules! zsend {
     ($msg:expr, $socket:expr, $addr:expr) => {{
@@ -57,7 +57,7 @@ async fn handle_client(socket: Arc<UdpSocket>) -> Result<(), Box<dyn std::error:
     // Read the InitSyn
     let (message, addr) = zrecv!(socket, buffer);
     match &message.body {
-        SessionBody::InitSyn { .. } => {
+        SessionBody::InitSyn(InitSyn { is_qos, .. }) => {
             let whatami = my_whatami;
             let sn_resolution = None;
             let cookie = ZSlice::from(vec![0u8; 8]);
@@ -66,6 +66,7 @@ async fn handle_client(socket: Arc<UdpSocket>) -> Result<(), Box<dyn std::error:
                 whatami,
                 my_pid.clone(),
                 sn_resolution,
+                *is_qos,
                 cookie,
                 attachment,
             );

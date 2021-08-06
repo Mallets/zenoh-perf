@@ -19,7 +19,7 @@ use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
-    whatami, CongestionControl, PeerId, Reliability, ResKey, WhatAmI,
+    whatami, CongestionControl, PeerId, Reliability, ResKey, Service, WhatAmI,
 };
 use zenoh::net::protocol::io::{WBuf, ZBuf};
 use zenoh::net::protocol::link::{Link, Locator};
@@ -215,6 +215,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
     let mut count: u64 = 0;
     loop {
         // Create and send the message
+        let service = Service::default();
         let reliability = Reliability::Reliable;
         let congestion_control = CongestionControl::Block;
         let key = ResKey::RName("/test/ping".to_string());
@@ -232,6 +233,7 @@ async fn single(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         let message = ZenohMessage::make_data(
             key,
             data,
+            service,
             reliability,
             congestion_control,
             info,
@@ -285,6 +287,7 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
     let mut count: u64 = 0;
     loop {
         // Create and send the message
+        let service = Service::default();
         let reliability = Reliability::Reliable;
         let congestion_control = CongestionControl::Block;
         let key = ResKey::RName("/test/ping".to_string());
@@ -302,6 +305,7 @@ async fn parallel(opt: Opt, whatami: WhatAmI, pid: PeerId) {
         let message = ZenohMessage::make_data(
             key,
             data,
+            service,
             reliability,
             congestion_control,
             info,

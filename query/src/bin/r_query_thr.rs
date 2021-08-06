@@ -182,7 +182,7 @@ async fn main() {
         let now = Instant::now();
         tx_primitives.send_query(
             &reskey,
-            &predicate,
+            predicate,
             qid,
             target.clone(),
             consolidation.clone(),

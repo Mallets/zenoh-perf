@@ -88,7 +88,7 @@ fn read_zenoh_messages(data: Vec<SessionMessage>) -> Vec<ZenohMessage> {
     for m in data.iter() {
         if let SessionBody::Frame(f) = &m.body {
             if let FramePayload::Messages { messages: msgs } = &f.payload {
-                messages.extend_from_slice(&msgs);
+                messages.extend_from_slice(msgs);
             }
         }
     }

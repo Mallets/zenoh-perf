@@ -77,8 +77,12 @@ impl MyMH {
 impl SessionEventHandler for MyMH {
     fn handle_message(&self, message: ZenohMessage) -> ZResult<()> {
         match message.body {
-            ZenohBody::Data(Data { payload, .. }) => {
-                let reply_context = message.reply_context.unwrap();
+            ZenohBody::Data(Data {
+                payload,
+                reply_context,
+                ..
+            }) => {
+                let reply_context = reply_context.unwrap();
                 let tuple = self
                     .pending
                     .lock()

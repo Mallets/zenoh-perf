@@ -173,7 +173,7 @@ async fn main() {
             .insert(count, (Instant::now(), barrier.clone()));
         tx_primitives.send_query(
             &reskey,
-            &predicate,
+            predicate,
             qid,
             target.clone(),
             consolidation.clone(),
