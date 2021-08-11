@@ -18,7 +18,7 @@ use std::time::Duration;
 use std::time::Instant;
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
-    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
+    Channel, PeerId, Priority, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo,
     SubMode, ZInt,
 };
 use zenoh::net::protocol::io::{WBuf, ZBuf};
@@ -79,8 +79,7 @@ impl Primitives for LatencyPrimitivesParallel {
         &self,
         _reskey: &ResKey,
         mut payload: ZBuf,
-        _reliability: Reliability,
-        _congestion_control: CongestionControl,
+        _channel: Channel,
         _data_info: Option<DataInfo>,
         _routing_context: Option<RoutingContext>,
     ) {
@@ -168,8 +167,7 @@ impl Primitives for LatencyPrimitivesSequential {
         &self,
         _reskey: &ResKey,
         mut payload: ZBuf,
-        _reliability: Reliability,
-        _congestion_control: CongestionControl,
+        _channel: Channel,
         _data_info: Option<DataInfo>,
         _routing_context: Option<RoutingContext>,
     ) {
@@ -251,6 +249,10 @@ async fn parallel(opt: Opt, config: ConfigProperties) {
     };
     tx_primitives.decl_subscriber(&rid, &sub_info, None);
 
+    let channel = Channel {
+        priority: Priority::Data,
+        reliability: Reliability::Reliable,
+    };
     let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     let reskey = ResKey::RName("/test/ping".to_string());
@@ -265,14 +267,7 @@ async fn parallel(opt: Opt, config: ConfigProperties) {
         // Insert the pending ping
         pending.lock().unwrap().insert(count, Instant::now());
 
-        tx_primitives.send_data(
-            &reskey,
-            data,
-            Reliability::Reliable,
-            CongestionControl::Block,
-            None,
-            None,
-        );
+        tx_primitives.send_data(&reskey, data, channel, None, None);
 
         task::sleep(Duration::from_secs_f64(opt.interval)).await;
         count += 1;
@@ -294,6 +289,10 @@ async fn single(opt: Opt, config: ConfigProperties) {
     };
     tx_primitives.decl_subscriber(&rid, &sub_info, None);
 
+    let channel = Channel {
+        priority: Priority::Data,
+        reliability: Reliability::Reliable,
+    };
     let payload = vec![0u8; opt.payload - 8];
     let mut count: u64 = 0;
     let reskey = ResKey::RName("/test/ping".to_string());
@@ -310,14 +309,7 @@ async fn single(opt: Opt, config: ConfigProperties) {
         pending.lock().unwrap().insert(count, barrier.clone());
 
         let now = Instant::now();
-        tx_primitives.send_data(
-            &reskey,
-            data,
-            Reliability::Reliable,
-            CongestionControl::Block,
-            None,
-            None,
-        );
+        tx_primitives.send_data(&reskey, data, channel, None, None);
         barrier.wait();
         println!(
             "router,{},latency.sequential,{},{},{},{},{}",

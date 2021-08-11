@@ -18,7 +18,7 @@ use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use zenoh::net::protocol::core::{
-    CongestionControl, PeerId, QueryConsolidation, QueryTarget, Reliability, ResKey, SubInfo, ZInt,
+    Channel, PeerId, QueryConsolidation, QueryTarget, ResKey, SubInfo, ZInt,
 };
 use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::proto::{DataInfo, RoutingContext};
@@ -66,8 +66,7 @@ impl Primitives for QueryPrimitives {
         &self,
         _reskey: &ResKey,
         _payload: ZBuf,
-        _reliability: Reliability,
-        _congestion_control: CongestionControl,
+        _channel: Channel,
         _data_info: Option<DataInfo>,
         _routing_context: Option<RoutingContext>,
     ) {

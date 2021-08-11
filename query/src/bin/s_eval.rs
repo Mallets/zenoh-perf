@@ -16,9 +16,7 @@ use async_std::sync::Arc;
 use rand::RngCore;
 use std::any::Any;
 use structopt::StructOpt;
-use zenoh::net::protocol::core::{
-    whatami, CongestionControl, PeerId, Reliability, ResKey, Service,
-};
+use zenoh::net::protocol::core::{whatami, Channel, PeerId, Priority, Reliability, ResKey};
 use zenoh::net::protocol::io::ZBuf;
 use zenoh::net::protocol::link::{Link, Locator};
 use zenoh::net::protocol::proto::{Query, ReplyContext, ZenohBody, ZenohMessage};
@@ -61,9 +59,10 @@ impl SessionEventHandler for MyMH {
         match message.body {
             ZenohBody::Query(Query { qid, .. }) => {
                 // Send reliable messages
-                let service = Service::default();
-                let reliability = Reliability::Reliable;
-                let congestion_control = CongestionControl::Block;
+                let channel = Channel {
+                    priority: Priority::Data,
+                    reliability: Reliability::Reliable,
+                };
                 let key = ResKey::RName("/test/query".to_string());
                 let info = None;
                 let payload = ZBuf::from(vec![0u8; self.payload]);
@@ -74,9 +73,7 @@ impl SessionEventHandler for MyMH {
                 let message = ZenohMessage::make_data(
                     key,
                     payload,
-                    service,
-                    reliability,
-                    congestion_control,
+                    channel,
                     info,
                     routing_context,
                     reply_context,

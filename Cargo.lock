@@ -182,9 +182,9 @@ dependencies = [
 
 [[package]]
 name = "async-process"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f38756dd9ac84671c428afbf7c9f7495feff9ec5b0710f17100098e5b354ac"
+checksum = "b21b63ab5a0db0369deb913540af2892750e42d949faacc7a61495ac418a1692"
 dependencies = [
  "async-io",
  "blocking",
@@ -468,12 +468,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data-encoding"
-version = "2.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
-
-[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -508,19 +502,6 @@ name = "discard"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
-
-[[package]]
-name = "env_logger"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "atty",
- "humantime",
- "log",
- "regex",
- "termcolor",
-]
 
 [[package]]
 name = "env_logger"
@@ -844,9 +825,9 @@ dependencies = [
 
 [[package]]
 name = "http-types"
-version = "2.11.1"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad077d89137cd3debdce53c66714dc536525ef43fe075d41ddc0a8ac11f85957"
+checksum = "6e9b187a72d63adbfba487f48095306ac823049cb504ee195541e91c7775f5ad"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -953,9 +934,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.98"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "320cfe77175da3a483efed4bc0adc1968ca050b098ce4f2f1c13a56626128790"
+checksum = "a7f823d141fe0a24df1e23b4af4e3c7ba9e5966ec514ea068c93024aa7deb765"
 
 [[package]]
 name = "libloading"
@@ -1338,9 +1319,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab49abadf3f9e1c4bc499e8845e152ad87d2ad2d30371841171169e9d75feee"
+checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
  "bitflags",
 ]
@@ -1456,11 +1437,10 @@ dependencies = [
 
 [[package]]
 name = "serde_qs"
-version = "0.7.2"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5af82de3c6549b001bec34961ff2d6a54339a87bab37ce901b693401f27de6cb"
+checksum = "d8a72808528a89fa9eca23bbb6a1eb92cb639b881357269b6510f11e50c0f8a9"
 dependencies = [
- "data-encoding",
  "percent-encoding",
  "serde",
  "thiserror",
@@ -1539,9 +1519,9 @@ dependencies = [
 
 [[package]]
 name = "slab"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
+checksum = "c307a32c1c5c437f38c7fd45d753050587732ba8628319fbdf12a7e289ccc590"
 
 [[package]]
 name = "socket2"
@@ -2003,14 +1983,14 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "zenoh"
 version = "0.5.0-dev"
-source = "git+https://github.com/Mallets/zenoh.git?branch=master#135b33bccac9e7b57adb17ca7a12a52ffc4f7114"
+source = "git+https://github.com/eclipse-zenoh/zenoh.git?branch=master#2b520f36cb56e4c5894aeced8de92a27e7ec9cb8"
 dependencies = [
  "async-global-executor",
  "async-std",
  "async-trait",
  "base64",
  "clap",
- "env_logger 0.8.4",
+ "env_logger",
  "event-listener",
  "flume",
  "futures",
@@ -2041,7 +2021,7 @@ version = "0.5.0-beta.8"
 dependencies = [
  "async-std",
  "async-trait",
- "env_logger 0.9.0",
+ "env_logger",
  "log",
  "rand 0.8.4",
  "slab",
@@ -2056,7 +2036,7 @@ version = "0.5.0-beta.8"
 dependencies = [
  "async-std",
  "async-trait",
- "env_logger 0.9.0",
+ "env_logger",
  "hex",
  "log",
  "rand 0.8.4",
@@ -2075,7 +2055,7 @@ version = "0.5.0-beta.8"
 dependencies = [
  "async-std",
  "async-trait",
- "env_logger 0.9.0",
+ "env_logger",
  "log",
  "rand 0.8.4",
  "slab",
@@ -2090,7 +2070,7 @@ version = "0.5.0-beta.8"
 dependencies = [
  "async-std",
  "async-trait",
- "env_logger 0.9.0",
+ "env_logger",
  "log",
  "rand 0.8.4",
  "slab",
@@ -2102,7 +2082,7 @@ dependencies = [
 [[package]]
 name = "zenoh-plugin-trait"
 version = "0.1.0-dev"
-source = "git+https://github.com/Mallets/zenoh.git?branch=master#135b33bccac9e7b57adb17ca7a12a52ffc4f7114"
+source = "git+https://github.com/eclipse-zenoh/zenoh.git?branch=master#2b520f36cb56e4c5894aeced8de92a27e7ec9cb8"
 dependencies = [
  "clap",
  "libloading",
@@ -2113,7 +2093,7 @@ dependencies = [
 [[package]]
 name = "zenoh-util"
 version = "0.5.0-dev"
-source = "git+https://github.com/Mallets/zenoh.git?branch=master#135b33bccac9e7b57adb17ca7a12a52ffc4f7114"
+source = "git+https://github.com/eclipse-zenoh/zenoh.git?branch=master#2b520f36cb56e4c5894aeced8de92a27e7ec9cb8"
 dependencies = [
  "aes 0.7.4",
  "async-std",
